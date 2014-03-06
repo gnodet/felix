@@ -18,12 +18,18 @@
  */
 package org.apache.felix.eventadmin.impl.handler;
 
+import java.security.AccessController;
+import java.util.HashMap;
+
+import javax.security.auth.Subject;
+
 import org.apache.felix.eventadmin.impl.tasks.AsyncDeliverTasks;
 import org.apache.felix.eventadmin.impl.tasks.DefaultThreadPool;
 import org.apache.felix.eventadmin.impl.tasks.SyncDeliverTasks;
 import org.osgi.framework.BundleContext;
 import org.osgi.service.event.Event;
 import org.osgi.service.event.EventAdmin;
+import org.osgi.service.event.EventConstants;
 
 /**
  * This is the actual implementation of the OSGi R4 Event Admin Service (see the
@@ -49,6 +55,9 @@ public class EventAdminImpl implements EventAdmin
     // The synchronous event dispatcher
     private final SyncDeliverTasks m_sendManager;
 
+    private final boolean addTimestamp;
+    private final boolean addSubject;
+
     /**
      * The constructor of the <tt>EventAdmin</tt> implementation.
      *
@@ -61,11 +70,15 @@ public class EventAdminImpl implements EventAdmin
                     final DefaultThreadPool asyncPool,
                     final int timeout,
                     final String[] ignoreTimeout,
-                    final boolean requireTopic)
+                    final boolean requireTopic,
+                    final boolean addTimestamp,
+                    final boolean addSubject)
     {
         checkNull(syncPool, "syncPool");
         checkNull(asyncPool, "asyncPool");
 
+        this.addTimestamp = addTimestamp;
+        this.addSubject = addSubject;
         this.tracker = new EventHandlerTracker(bundleContext);
         this.tracker.update(ignoreTimeout, requireTopic);
         this.tracker.open();
@@ -97,7 +110,36 @@ public class EventAdminImpl implements EventAdmin
      */
     public void postEvent(final Event event)
     {
-        m_postManager.execute(this.getTracker().getHandlers(event), event);
+        m_postManager.execute(this.getTracker().getHandlers(event), prepareEvent(event));
+    }
+
+    static final String SUBJECT = "subject";
+
+    private Event prepareEvent(Event event) {
+        boolean needTimeStamp = addTimestamp && !event.containsProperty(EventConstants.TIMESTAMP);
+        boolean needSubject = addSubject && !event.containsProperty(SUBJECT);
+        Subject subject = null;
+        if (needSubject) {
+            subject = Subject.getSubject(AccessController.getContext());
+            needSubject = (subject != null);
+        }
+        if (needTimeStamp || needSubject) {
+            String[] names = event.getPropertyNames();
+            HashMap map = new HashMap(names.length + 1);
+            for (int i = 0; i < names.length; i++) {
+                if (!EventConstants.EVENT_TOPIC.equals(names[i])) {
+                    map.put(names[i], event.getProperty(names[i]));
+                }
+            }
+            if (needTimeStamp) {
+                map.put(EventConstants.TIMESTAMP, new Long(System.currentTimeMillis()));
+            }
+            if (needSubject) {
+                map.put(SUBJECT, subject);
+            }
+            event = new Event(event.getTopic(), map);
+        }
+        return event;
     }
 
     /**
@@ -111,7 +153,7 @@ public class EventAdminImpl implements EventAdmin
      */
     public void sendEvent(final Event event)
     {
-        m_sendManager.execute(this.getTracker().getHandlers(event), event, false);
+        m_sendManager.execute(this.getTracker().getHandlers(event), prepareEvent(event), false);
     }
 
     /**

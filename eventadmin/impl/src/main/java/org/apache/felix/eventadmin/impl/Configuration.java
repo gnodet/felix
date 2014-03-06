@@ -100,6 +100,8 @@ public class Configuration
     static final String PROP_REQUIRE_TOPIC = "org.apache.felix.eventadmin.RequireTopic";
     static final String PROP_IGNORE_TIMEOUT = "org.apache.felix.eventadmin.IgnoreTimeout";
     static final String PROP_LOG_LEVEL = "org.apache.felix.eventadmin.LogLevel";
+    static final String PROP_ADD_TIMESTAMP = "org.apache.felix.eventadmin.AddTimestamp";
+    static final String PROP_ADD_SUBJECT = "org.apache.felix.eventadmin.AddSubject";
 
     /** The bundle context. */
     private final BundleContext m_bundleContext;
@@ -113,6 +115,10 @@ public class Configuration
     private String[] m_ignoreTimeout;
 
     private int m_logLevel;
+
+    private boolean m_addTimestamp;
+
+    private boolean m_addSubject;
 
     // The thread pool used - this is a member because we need to close it on stop
     private volatile DefaultThreadPool m_sync_pool;
@@ -239,6 +245,10 @@ public class Configuration
                     m_bundleContext.getProperty(PROP_LOG_LEVEL),
                     LogWrapper.LOG_WARNING, // default log level is WARNING
                     LogWrapper.LOG_ERROR);
+            m_addTimestamp = getBooleanProperty(
+                    m_bundleContext.getProperty(PROP_ADD_TIMESTAMP), false);
+            m_addSubject = getBooleanProperty(
+                    m_bundleContext.getProperty(PROP_ADD_SUBJECT), false);
         }
         else
         {
@@ -313,7 +323,9 @@ public class Configuration
                     m_async_pool,
                     m_timeout,
                     m_ignoreTimeout,
-                    m_requireTopic);
+                    m_requireTopic,
+                    m_addTimestamp,
+                    m_addSubject);
 
             // Finally, adapt the outside events to our kind of events as per spec
             adaptEvents(m_admin);
