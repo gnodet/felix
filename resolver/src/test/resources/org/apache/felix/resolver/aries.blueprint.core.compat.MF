@@ -1,0 +1,33 @@
+Manifest-Version: 1.0
+Archiver-Version: Plexus Archiver
+Created-By: Apache Maven Bundle Plugin
+Built-By: holly
+Build-Jdk: 1.6.0_33
+Specification-Title: Apache Aries Blueprint Core Compatiblity Fragment
+  Bundle
+Specification-Version: 1.0.0
+Specification-Vendor: The Apache Software Foundation
+Implementation-Title: Apache Aries Blueprint Core Compatiblity Fragmen
+ t Bundle
+Implementation-Version: 1.0.0
+Implementation-Vendor-Id: org.apache.aries.blueprint
+Implementation-Vendor: The Apache Software Foundation
+Export-Package: org.apache.aries.blueprint.container;deprecated=true;u
+ ses:="org.apache.aries.blueprint.di,org.apache.aries.blueprint.reflec
+ t";version="1.0.0",org.apache.aries.blueprint.di;deprecated=true;uses
+ :="org.apache.aries.blueprint.container";version="1.0.0",org.apache.a
+ ries.blueprint.reflect;deprecated=true;version="1.0.0"
+Tool: Bnd-1.15.0
+Bundle-Name: Apache Aries Blueprint Core Compatiblity Fragment Bundle
+Bundle-Vendor: The Apache Software Foundation
+Fragment-Host: org.apache.aries.blueprint.core
+Bundle-Version: 1.0.0
+Bnd-LastModified: 1343251363588
+Bundle-ManifestVersion: 2
+Bundle-Description: This bundle contains extra classes and exports to
+ allow Blueprint core to be compatible        with previous versions o
+ f Blueprint.
+Bundle-License: http://www.apache.org/licenses/LICENSE-2.0.txt
+Bundle-SymbolicName: org.apache.aries.blueprint.core.compatibility
+Bundle-DocURL: http://www.apache.org
+

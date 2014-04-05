@@ -1,0 +1,65 @@
+Manifest-Version: 1.0
+Export-Package: org.apache.aries.blueprint;uses:="org.osgi.service.blu
+ eprint.reflect,org.apache.aries.blueprint.services,org.osgi.framework
+ ,org.w3c.dom";version="1.3.0",org.apache.aries.blueprint.mutable;uses
+ :="org.osgi.service.blueprint.reflect,org.apache.aries.blueprint,org.
+ osgi.framework";version="1.2.0",org.apache.aries.blueprint.ext;uses:=
+ "org.osgi.service.blueprint.reflect,org.slf4j,org.apache.aries.bluepr
+ int,org.osgi.framework,org.osgi.service.blueprint.container,org.apach
+ e.aries.blueprint.mutable,org.apache.aries.blueprint.services,org.apa
+ che.aries.blueprint.ext.evaluator";version="1.1.0",org.apache.aries.b
+ lueprint.ext.evaluator;version="1.0.0",org.apache.aries.blueprint.ser
+ vices;uses:="org.osgi.framework,org.osgi.service.blueprint.container,
+ org.apache.aries.blueprint,org.osgi.service.blueprint.reflect,org.apa
+ che.aries.proxy";version="1.2.0",org.apache.aries.blueprint.utils;use
+ s:="org.osgi.framework,org.apache.aries.blueprint.services,org.osgi.s
+ ervice.blueprint.container,org.slf4j";version="1.1.0",org.osgi.servic
+ e.blueprint;version="1.0.0"
+Implementation-Title: Apache Aries
+Implementation-Version: 1.4.0
+Built-By: dkulp
+Tool: Bnd-1.15.0
+Bundle-Name: Apache Aries Blueprint Core
+Created-By: Apache Maven Bundle Plugin
+Export-Service: org.apache.aries.blueprint.NamespaceHandler;osgi.servi
+ ce.blueprint.namespace="http://www.w3.org/XML/1998/namespace",org.apa
+ che.aries.blueprint.NamespaceHandler;osgi.service.blueprint.namespace
+ ="http://aries.apache.org/blueprint/xmlns/blueprint-ext/v1.3.0",org.a
+ pache.aries.blueprint.NamespaceHandler;osgi.service.blueprint.namespa
+ ce="http://aries.apache.org/blueprint/xmlns/blueprint-ext/v1.2.0",org
+ .apache.aries.blueprint.NamespaceHandler;osgi.service.blueprint.names
+ pace="http://aries.apache.org/blueprint/xmlns/blueprint-ext/v1.4.0",o
+ rg.apache.aries.blueprint.NamespaceHandler;osgi.service.blueprint.nam
+ espace="http://aries.apache.org/blueprint/xmlns/blueprint-ext/v1.1.0"
+ ,org.apache.aries.blueprint.NamespaceHandler;osgi.service.blueprint.n
+ amespace="http://aries.apache.org/blueprint/xmlns/blueprint-ext/v1.0.
+ 0",org.apache.aries.blueprint.ParserService
+Bundle-Vendor: The Apache Software Foundation
+Provide-Capability: osgi.extender;osgi.extender="osgi.blueprint";uses:
+ ="org.osgi.service.blueprint.container,org.osgi.service.blueprint.ref
+ lect";version:Version="1.0"
+Build-Jdk: 1.6.0_65
+Bundle-Version: 1.4.0
+Bnd-LastModified: 1387313493684
+Bundle-ManifestVersion: 2
+Bundle-Activator: org.apache.aries.blueprint.container.BlueprintExtend
+ er
+Bundle-License: http://www.apache.org/licenses/LICENSE-2.0.txt
+Bundle-Description: This bundle contains the core implementation of Bl
+ ueprint        along with the "ext" namespace handler.
+Bundle-DocURL: http://www.apache.org
+Bundle-SymbolicName: org.apache.aries.blueprint.core
+Import-Package: javax.xml.namespace,javax.xml.parsers,javax.xml.transf
+ orm,javax.xml.transform.dom,javax.xml.transform.stream,javax.xml.vali
+ dation,org.apache.aries.blueprint.annotation.service;version="[1.0,2)
+ ";resolution:=optional,org.apache.aries.proxy;version="[1.0,1.1)",org
+ .apache.aries.quiesce.manager;resolution:=optional;version="[1.0,1.1)
+ ",org.apache.aries.quiesce.participant;resolution:=optional;version="
+ [1.0,1.1)",org.apache.aries.util;version="[1.0,2)",org.apache.aries.u
+ til.tracker;version="[1.0,2)",org.osgi.framework;version="[1.5,2)",or
+ g.osgi.service.blueprint.container;version="[1.0,1.1)",org.osgi.servi
+ ce.blueprint.reflect;version="[1.0,1.1)",org.osgi.service.event;resol
+ ution:=optional;version="[1.2,2)",org.osgi.service.framework;resoluti
+ on:=optional,org.osgi.util.tracker;version="[1.4,2)",org.slf4j;versio
+ n="[1.5,2)",org.w3c.dom,org.w3c.dom.ls,org.xml.sax
+
