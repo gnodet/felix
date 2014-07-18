@@ -57,7 +57,6 @@ import org.apache.felix.framework.cache.BundleCache;
 import org.apache.felix.framework.capabilityset.CapabilitySet;
 import org.apache.felix.framework.capabilityset.SimpleFilter;
 import org.apache.felix.framework.ext.SecurityProvider;
-import org.apache.felix.framework.resolver.ResolveException;
 import org.apache.felix.framework.util.EventDispatcher;
 import org.apache.felix.framework.util.FelixConstants;
 import org.apache.felix.framework.util.ListenerInfo;
@@ -102,6 +101,7 @@ import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.framework.wiring.FrameworkWiring;
 import org.osgi.resource.Requirement;
 import org.osgi.service.packageadmin.ExportedPackage;
+import org.osgi.service.resolver.ResolutionException;
 
 public class Felix extends BundleImpl implements Framework
 {
@@ -734,12 +734,12 @@ public class Felix extends BundleImpl implements Framework
                         Collections.singleton(adapt(BundleRevision.class)),
                         Collections.EMPTY_SET);
                 }
-                catch (ResolveException ex)
+                catch (ResolutionException ex)
                 {
                     // This should never happen.
                     throw new BundleException(
                         "Unresolved constraint in System Bundle:"
-                        + ex.getRequirement());
+                        + ex.getUnresolvedRequirements());
                 }
 
                 // Reload the cached bundles before creating and starting the
@@ -4062,7 +4062,7 @@ public class Felix extends BundleImpl implements Framework
                         }
                     }
                 }
-                catch (ResolveException ex)
+                catch (ResolutionException ex)
                 {
                     result = false;
                 }
@@ -4087,19 +4087,11 @@ public class Felix extends BundleImpl implements Framework
         {
             m_resolver.resolve(Collections.singleton(revision), Collections.EMPTY_SET);
         }
-        catch (ResolveException ex)
+        catch (ResolutionException ex)
         {
-            if (ex.getRevision() != null)
-            {
-                Bundle b = ex.getRevision().getBundle();
-                throw new BundleException(
-                    "Unresolved constraint in bundle "
-                    + b + ": " + ex.getMessage(), BundleException.RESOLVE_ERROR);
-            }
-            else
-            {
-                throw new BundleException(ex.getMessage(), BundleException.RESOLVE_ERROR);
-            }
+            throw new BundleException(ex.getMessage() +
+                " Unresolved requirements: " + ex.getUnresolvedRequirements(),
+                BundleException.RESOLVE_ERROR);
         }
     }
 
