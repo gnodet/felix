@@ -484,7 +484,10 @@ public class OpenHashMap<K, V> extends AbstractMap<K, V> implements Cloneable {
     }
 
     public void concat() {
-        rehash(nextPrime(size() + 1)); // +1 as we always need a free slot
+        int newCap = nextPrime(size() + 1); // +1 as we always need a free slot
+        if (newCap != table.length) {
+            rehash(newCap);
+        }
     }
 
     /**

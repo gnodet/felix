@@ -51,7 +51,7 @@ class Candidates
 
     private final Set<Resource> m_mandatoryResources;
     // Maps a capability to requirements that match it.
-    private final Map<Capability, Set<Requirement>> m_dependentMap;
+    private final OpenHashMap<Capability, Set<Requirement>> m_dependentMap;
     // Maps a requirement to the capability it matches.
     private final OpenHashMap<Requirement, List<Capability>> m_candidateMap;
     // Maps a bundle revision to its associated wrapped revision; this only happens
@@ -67,20 +67,20 @@ class Candidates
 
     private final Map<Capability, Requirement> m_subtitutableMap;
 
-    private final Map<Requirement, Set<Capability>> m_path;
+    private final OpenHashMap<Requirement, Set<Capability>> m_path;
 
     /**
      * Private copy constructor used by the copy() method.
      */
     private Candidates(
         Set<Resource> mandatoryResources,
-        Map<Capability, Set<Requirement>> dependentMap,
+        OpenHashMap<Capability, Set<Requirement>> dependentMap,
         OpenHashMap<Requirement, List<Capability>> candidateMap,
         Map<Resource, WrappedResource> wrappedHosts, Map<Resource, Object> populateResultCache,
         boolean fragmentsPresent,
         Map<Resource, Boolean> onDemandResources,
         Map<Capability, Requirement> substitutableMap,
-        Map<Requirement, Set<Capability>> path)
+        OpenHashMap<Requirement, Set<Capability>> path)
     {
         m_mandatoryResources = mandatoryResources;
         m_dependentMap = dependentMap;
@@ -1060,6 +1060,7 @@ class Candidates
         populateSubstitutables();
 
         m_candidateMap.concat();
+        m_dependentMap.concat();
     }
 
     // Maps a host capability to a map containing its potential fragments;
@@ -1241,32 +1242,26 @@ class Candidates
      */
     public Candidates copy()
     {
-        OpenHashMap<Capability, Set<Requirement>> dependentMap =
-            new OpenHashMap<Capability, Set<Requirement>>(m_dependentMap.size());
+        OpenHashMap<Capability, Set<Requirement>> dependentMap = m_dependentMap.clone();
         for (Entry<Capability, Set<Requirement>> entry : m_dependentMap.entrySet())
         {
             Set<Requirement> dependents = new CopyOnWriteSet<Requirement>(entry.getValue());
             dependentMap.put(entry.getKey(), dependents);
         }
-        dependentMap.concat();
 
-        OpenHashMap<Requirement, List<Capability>> candidateMap =
-                new OpenHashMap<Requirement, List<Capability>>(m_candidateMap.size());
+        OpenHashMap<Requirement, List<Capability>> candidateMap = m_candidateMap.clone();
         for (Entry<Requirement, List<Capability>> entry : m_candidateMap.entrySet())
         {
             List<Capability> candidates = new CopyOnWriteList<Capability>(entry.getValue());
             candidateMap.put(entry.getKey(), candidates);
         }
-        candidateMap.concat();
 
-        OpenHashMap<Requirement, Set<Capability>> path =
-                new OpenHashMap<Requirement, Set<Capability>>(m_path.size());
+        OpenHashMap<Requirement, Set<Capability>> path = m_path.clone();
         for (Entry<Requirement, Set<Capability>> entry : m_path.entrySet())
         {
             Set<Capability> caps = new CopyOnWriteSet<Capability>(entry.getValue());
             path.put(entry.getKey(), caps);
         }
-        path.concat();
 
         return new Candidates(
             m_mandatoryResources, dependentMap, candidateMap,
