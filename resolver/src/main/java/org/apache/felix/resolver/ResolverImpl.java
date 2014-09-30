@@ -125,8 +125,8 @@ public class ResolverImpl implements Resolver
             new HashMap<Resource, Packages>();
 
         // Make copies of arguments in case we want to modify them.
-        Collection<Resource> mandatoryResources = new ArrayList(rc.getMandatoryResources());
-        Collection<Resource> optionalResources = new ArrayList(rc.getOptionalResources());
+        Collection<Resource> mandatoryResources = new ArrayList<Resource>(rc.getMandatoryResources());
+        Collection<Resource> optionalResources = new ArrayList<Resource>(rc.getOptionalResources());
         // keeps track of valid on demand fragments that we have seen.
         // a null value or TRUE indicate it is valid
         Map<Resource, Boolean> validOnDemandResources = new HashMap<Resource, Boolean>(0);
@@ -328,7 +328,7 @@ public class ResolverImpl implements Resolver
                         for (Resource faultyResource : resourceKeys)
                         {
                             Boolean valid = validOnDemandResources.get(faultyResource);
-                            if (valid != null && valid.booleanValue())
+                            if (valid != null && valid)
                             {
                                 // This was an ondemand resource.
                                 // Invalidate it and try again.
@@ -469,7 +469,7 @@ public class ResolverImpl implements Resolver
                     // Record the initial candidate permutation.
                     usesPermutations.add(allCandidates);
 
-                    ResolutionException rethrow = null;
+                    ResolutionException rethrow;
 
                     do
                     {
@@ -540,7 +540,7 @@ public class ResolverImpl implements Resolver
                                 .getDeclaredRequirement().getResource();
                         }
                         Boolean valid = onDemandResources.get(faultyResource);
-                        if (valid != null && valid.booleanValue())
+                        if (valid != null && valid)
                         {
                             onDemandResources.put(faultyResource, Boolean.FALSE);
                             retry = true;
@@ -614,8 +614,8 @@ public class ResolverImpl implements Resolver
         // capability or actual capability if resource is resolved or not.
         // We use parallel lists so we can calculate the packages spaces for
         // resolved and unresolved resources in an identical fashion.
-        List<Requirement> reqs = new ArrayList();
-        List<Capability> caps = new ArrayList();
+        List<Requirement> reqs = new ArrayList<Requirement>();
+        List<Capability> caps = new ArrayList<Capability>();
         boolean isDynamicImporting = false;
         Wiring wiring = session.getContext().getWirings().get(resource);
         if (wiring != null)
@@ -752,10 +752,10 @@ public class ResolverImpl implements Resolver
         }
 
         // Third, have all candidates to calculate their package spaces.
-        for (int i = 0; i < caps.size(); i++)
+        for (Capability cap : caps)
         {
             calculatePackageSpaces(
-                session, caps.get(i).getResource(), allCandidates, resourcePkgMap,
+                session, cap.getResource(), allCandidates, resourcePkgMap,
                 usesCycleMap, cycle);
         }
 
@@ -1038,7 +1038,7 @@ public class ResolverImpl implements Resolver
                 Blame candExportedBlame = candSourcePkgs.m_exportedPkgs.get(usedPkgName);
                 if (candExportedBlame != null)
                 {
-                    candSourceBlames = new ArrayList(1);
+                    candSourceBlames = new ArrayList<Blame>(1);
                     candSourceBlames.add(candExportedBlame);
                 }
                 else
@@ -1755,7 +1755,7 @@ public class ResolverImpl implements Resolver
         if (!rc.getWirings().containsKey(unwrappedResource)
             && !wireMap.containsKey(unwrappedResource))
         {
-            wireMap.put(unwrappedResource, (List<Wire>) Collections.EMPTY_LIST);
+            wireMap.put(unwrappedResource, Collections.<Wire>emptyList());
 
             List<Wire> packageWires = new ArrayList<Wire>();
             List<Wire> bundleWires = new ArrayList<Wire>();
@@ -1921,7 +1921,7 @@ public class ResolverImpl implements Resolver
         Map<Resource, Packages> resourcePkgMap,
         Map<Resource, List<Wire>> wireMap, Candidates allCandidates)
     {
-        wireMap.put(resource, (List<Wire>) Collections.EMPTY_LIST);
+        wireMap.put(resource, Collections.<Wire>emptyList());
 
         List<Wire> packageWires = new ArrayList<Wire>();
 
@@ -1988,7 +1988,7 @@ public class ResolverImpl implements Resolver
     private static String toStringBlame(
         ResolveContext rc, Candidates allCandidates, Blame blame)
     {
-        StringBuffer sb = new StringBuffer();
+        StringBuilder sb = new StringBuilder();
         if ((blame.m_reqs != null) && !blame.m_reqs.isEmpty())
         {
             for (int i = 0; i < blame.m_reqs.size(); i++)
@@ -2231,10 +2231,10 @@ public class ResolverImpl implements Resolver
         {
             if (m_rootCauses == null)
             {
-                return Collections.EMPTY_SET;
+                return Collections.emptySet();
             }
             Set<Capability> result = m_rootCauses.get(req);
-            return result == null ? Collections.EMPTY_SET : result;
+            return result == null ? Collections.<Capability>emptySet() : result;
         }
 
         @Override
