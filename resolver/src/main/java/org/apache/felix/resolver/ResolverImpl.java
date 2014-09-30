@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.StringTokenizer;
 
 import org.osgi.framework.namespace.BundleNamespace;
 import org.osgi.framework.namespace.ExecutionEnvironmentNamespace;
@@ -70,6 +69,8 @@ public class ResolverImpl implements Resolver
 
         private final Map<Capability, List<Capability>> m_packageSourcesCache = new HashMap();
 
+        private final Map<String, List<String>> m_usesCache = new HashMap<String, List<String>>();
+
         ResolveSession(ResolveContext resolveContext)
         {
             m_resolveContext = resolveContext;
@@ -103,6 +104,10 @@ public class ResolverImpl implements Resolver
         ResolveContext getContext()
         {
             return m_resolveContext;
+        }
+
+        public Map<String, List<String>> getUsesCache() {
+            return m_usesCache;
         }
     }
 
@@ -1025,18 +1030,20 @@ public class ResolverImpl implements Resolver
 //            }
 //            else
             {
-                uses = Collections.EMPTY_LIST;
-                String s = candSourceCap.getDirectives()
-                    .get(Namespace.CAPABILITY_USES_DIRECTIVE);
+                String s = candSourceCap.getDirectives().get(Namespace.CAPABILITY_USES_DIRECTIVE);
                 if (s != null)
                 {
                     // Parse these uses directive.
-                    StringTokenizer tok = new StringTokenizer(s, ",");
-                    uses = new ArrayList(tok.countTokens());
-                    while (tok.hasMoreTokens())
+                    uses = session.getUsesCache().get(s);
+                    if (uses == null)
                     {
-                        uses.add(tok.nextToken().trim());
+                        uses = parseUses(s);
+                        session.getUsesCache().put(s, uses);
                     }
+                }
+                else
+                {
+                    uses = Collections.emptyList();
                 }
             }
             for (String usedPkgName : uses)
@@ -1095,6 +1102,42 @@ public class ResolverImpl implements Resolver
                 }
             }
         }
+    }
+
+    private static List<String> parseUses(String s) {
+        int nb = 1;
+        int l = s.length();
+        for (int i = 0; i < l; i++) {
+            if (s.charAt(i) == ',') {
+                nb++;
+            }
+        }
+        List<String> uses = new ArrayList<String>(nb);
+        int start = 0;
+        while (true) {
+            while (start < l) {
+                char c = s.charAt(start);
+                if (c != ' ' && c != ',') {
+                    break;
+                }
+                start++;
+            }
+            int end = start + 1;
+            while (end < l) {
+                char c = s.charAt(end);
+                if (c == ' ' || c == ',') {
+                    break;
+                }
+                end++;
+            }
+            if (start < l) {
+                uses.add(s.substring(start, end));
+                start = end + 1;
+            } else {
+                break;
+            }
+        }
+        return uses;
     }
 
     private static void addUsedBlame(
