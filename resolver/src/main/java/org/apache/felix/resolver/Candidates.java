@@ -785,7 +785,12 @@ class Candidates
      */
     public List<Capability> getCandidates(Requirement req)
     {
-        return Collections.unmodifiableList(m_candidateMap.get(req));
+        List<Capability> candidates = m_candidateMap.get(req);
+        if (candidates != null)
+        {
+            return Collections.unmodifiableList(candidates);
+        }
+        return null;
     }
 
     public Capability getFirstCandidate(Requirement req)
