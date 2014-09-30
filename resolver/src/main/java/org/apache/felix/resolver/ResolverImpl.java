@@ -206,9 +206,24 @@ public class ResolverImpl implements Resolver
                     }
                 }
 
+                Set<Object> donePaths = new HashSet<Object>();
                 Map<Resource, ResolutionException> faultyResources = null;
                 do
                 {
+                    allCandidates = (usesPermutations.size() > 0)
+                            ? usesPermutations.remove(0)
+                            : (importPermutations.size() > 0
+                                    ? importPermutations.remove(0)
+                                    : null);
+                    if (allCandidates == null)
+                    {
+                        break;
+                    }
+                    if (!donePaths.add(allCandidates.getPath()))
+                    {
+                        continue;
+                    }
+
                     rethrow = null;
 
                     resourcePkgMap.clear();
@@ -218,9 +233,6 @@ public class ResolverImpl implements Resolver
                     // delta of the current permutation.
                     session.setMultipleCardCandidates(null);
 
-                    allCandidates = (usesPermutations.size() > 0)
-                        ? usesPermutations.remove(0)
-                        : importPermutations.remove(0);
 //allCandidates.dump();
                     nbPermuts++;
                     maxMem = Math.max(maxMem, Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory());
@@ -301,8 +313,7 @@ public class ResolverImpl implements Resolver
                         }
                     }
                 }
-                while ((rethrow != null)
-                    && ((usesPermutations.size() > 0) || (importPermutations.size() > 0)));
+                while (rethrow != null);
 
                 // If there is a resolve exception, then determine if an
                 // optionally resolved resource is to blame (typically a fragment).
