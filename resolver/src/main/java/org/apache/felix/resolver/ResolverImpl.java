@@ -111,6 +111,9 @@ public class ResolverImpl implements Resolver
         m_logger = logger;
     }
 
+    public int nbIgnored = 0;
+    public int nbPermuts = 0;
+
     public Map<Resource, List<Wire>> resolve(ResolveContext rc) throws ResolutionException
     {
         ResolveSession session = new ResolveSession(rc);
