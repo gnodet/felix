@@ -21,14 +21,16 @@ package org.apache.felix.resolver;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
+
+import org.apache.felix.resolver.util.CopyOnWriteSet;
+import org.apache.felix.resolver.util.CopyOnWriteList;
+import org.apache.felix.resolver.util.OpenHashMap;
 import org.osgi.framework.Version;
 import org.osgi.framework.namespace.HostNamespace;
 import org.osgi.framework.namespace.IdentityNamespace;
@@ -51,7 +53,7 @@ class Candidates
     // Maps a capability to requirements that match it.
     private final Map<Capability, Set<Requirement>> m_dependentMap;
     // Maps a requirement to the capability it matches.
-    private final Map<Requirement, List<Capability>> m_candidateMap;
+    private final OpenHashMap<Requirement, List<Capability>> m_candidateMap;
     // Maps a bundle revision to its associated wrapped revision; this only happens
     // when a revision being resolved has fragments to attach to it.
     private final Map<Resource, WrappedResource> m_allWrappedHosts;
@@ -71,7 +73,7 @@ class Candidates
     private Candidates(
         Set<Resource> mandatoryResources,
         Map<Capability, Set<Requirement>> dependentMap,
-        Map<Requirement, List<Capability>> candidateMap,
+        OpenHashMap<Requirement, List<Capability>> candidateMap,
         Map<Resource, WrappedResource> wrappedHosts, Map<Resource, Object> populateResultCache,
         boolean fragmentsPresent,
         Map<Resource, Boolean> onDemandResources,
@@ -92,13 +94,13 @@ class Candidates
      */
     public Candidates(Map<Resource, Boolean> validOnDemandResources)
     {
-        m_mandatoryResources = new HashSet<Resource>();
-        m_dependentMap = new HashMap<Capability, Set<Requirement>>();
-        m_candidateMap = new HashMap<Requirement, List<Capability>>();
-        m_allWrappedHosts = new HashMap<Resource, WrappedResource>();
-        m_populateResultCache = new HashMap<Resource, Object>();
+        m_mandatoryResources = new CopyOnWriteSet<Resource>();
+        m_dependentMap = new OpenHashMap<Capability, Set<Requirement>>();
+        m_candidateMap = new OpenHashMap<Requirement, List<Capability>>();
+        m_allWrappedHosts = new OpenHashMap<Resource, WrappedResource>();
+        m_populateResultCache = new OpenHashMap<Resource, Object>();
         m_validOnDemandResources = validOnDemandResources;
-        m_subtitutableMap = new HashMap<Capability, Requirement>();
+        m_subtitutableMap = new OpenHashMap<Capability, Requirement>();
     }
 
     /**
@@ -234,7 +236,7 @@ class Candidates
 
             // Create a local map for populating candidates first, just in case
             // the revision is not resolvable.
-            localCandidateMap = new HashMap<Requirement, List<Capability>>();
+            localCandidateMap = new OpenHashMap<Requirement, List<Capability>>();
 
             // Create a modifiable list of the revision's requirements.
             remainingReqs = new ArrayList<Requirement>(resource.getRequirements(null));
@@ -363,7 +365,7 @@ class Candidates
         {
             return;
         }
-        Map<String, Collection<Capability>> exportNames = new HashMap<String, Collection<Capability>>();
+        Map<String, Collection<Capability>> exportNames = new OpenHashMap<String, Collection<Capability>>();
         for (Capability packageExport : packageExports)
         {
             String packageName = (String) packageExport.getAttributes().get(PackageNamespace.PACKAGE_NAMESPACE);
@@ -411,7 +413,7 @@ class Candidates
 
     void checkSubstitutes(List<Candidates> importPermutations) throws ResolutionException
     {
-        Map<Capability, Integer> substituteStatuses = new HashMap<Capability, Integer>(m_subtitutableMap.size());
+        Map<Capability, Integer> substituteStatuses = new OpenHashMap<Capability, Integer>(m_subtitutableMap.size());
         for (Capability substitutable : m_subtitutableMap.keySet())
         {
             // initialize with unprocessed
@@ -605,7 +607,7 @@ class Candidates
             {
                 if (fragmentCands == null)
                 {
-                    fragmentCands = new HashSet<Capability>();
+                    fragmentCands = new CopyOnWriteSet<Capability>();
                 }
                 fragmentCands.add(candCap);
             }
@@ -927,7 +929,7 @@ class Candidates
                     Set<Requirement> dependents = m_dependentMap.get(origCap);
                     if (dependents != null)
                     {
-                        dependents = new HashSet<Requirement>(dependents);
+                        dependents = new CopyOnWriteSet<Requirement>(dependents);
                         m_dependentMap.put(c, dependents);
                         for (Requirement r : dependents)
                         {
@@ -1028,6 +1030,8 @@ class Candidates
         }
 
         populateSubstitutables();
+
+        m_candidateMap.concat();
     }
 
     // Maps a host capability to a map containing its potential fragments;
@@ -1037,7 +1041,7 @@ class Candidates
     private Map<Capability, Map<String, Map<Version, List<Requirement>>>> populateDependents()
     {
         Map<Capability, Map<String, Map<Version, List<Requirement>>>> hostFragments =
-            new HashMap<Capability, Map<String, Map<Version, List<Requirement>>>>();
+            new OpenHashMap<Capability, Map<String, Map<Version, List<Requirement>>>>();
         for (Entry<Requirement, List<Capability>> entry : m_candidateMap.entrySet())
         {
             Requirement req = entry.getKey();
@@ -1048,7 +1052,7 @@ class Candidates
                 Set<Requirement> dependents = m_dependentMap.get(cap);
                 if (dependents == null)
                 {
-                    dependents = new HashSet<Requirement>();
+                    dependents = new CopyOnWriteSet<Requirement>();
                     m_dependentMap.put(cap, dependents);
                 }
                 dependents.add(req);
@@ -1062,7 +1066,7 @@ class Candidates
                     Map<String, Map<Version, List<Requirement>>> fragments = hostFragments.get(cap);
                     if (fragments == null)
                     {
-                        fragments = new HashMap<String, Map<Version, List<Requirement>>>();
+                        fragments = new OpenHashMap<String, Map<Version, List<Requirement>>>();
                         hostFragments.put(cap, fragments);
                     }
                     Map<Version, List<Requirement>> fragmentVersions = fragments.get(resSymName);
@@ -1104,7 +1108,7 @@ class Candidates
         // Add removal reason to result cache.
         m_populateResultCache.put(resource, ex);
         // Remove from dependents.
-        Set<Resource> unresolvedResources = new HashSet<Resource>();
+        Set<Resource> unresolvedResources = new CopyOnWriteSet<Resource>();
         remove(resource, unresolvedResources);
         // Remove dependents that failed as a result of removing revision.
         while (!unresolvedResources.isEmpty())
@@ -1209,23 +1213,23 @@ class Candidates
      */
     public Candidates copy()
     {
-        Map<Capability, Set<Requirement>> dependentMap =
-            new HashMap<Capability, Set<Requirement>>();
+        OpenHashMap<Capability, Set<Requirement>> dependentMap =
+            new OpenHashMap<Capability, Set<Requirement>>(m_dependentMap.size());
         for (Entry<Capability, Set<Requirement>> entry : m_dependentMap.entrySet())
         {
-            Set<Requirement> dependents = new HashSet<Requirement>(entry.getValue());
+            Set<Requirement> dependents = new CopyOnWriteSet<Requirement>(entry.getValue());
             dependentMap.put(entry.getKey(), dependents);
         }
+        dependentMap.concat();
 
-        Map<Requirement, List<Capability>> candidateMap =
-            new HashMap<Requirement, List<Capability>>();
-        for (Entry<Requirement, List<Capability>> entry
-            : m_candidateMap.entrySet())
+        OpenHashMap<Requirement, List<Capability>> candidateMap =
+                new OpenHashMap<Requirement, List<Capability>>(m_candidateMap.size());
+        for (Entry<Requirement, List<Capability>> entry : m_candidateMap.entrySet())
         {
-            List<Capability> candidates =
-                new ArrayList<Capability>(entry.getValue());
+            List<Capability> candidates = new CopyOnWriteList<Capability>(entry.getValue());
             candidateMap.put(entry.getKey(), candidates);
         }
+        candidateMap.concat();
 
         return new Candidates(
             m_mandatoryResources, dependentMap, candidateMap,
@@ -1236,7 +1240,7 @@ class Candidates
     public void dump(ResolveContext rc)
     {
         // Create set of all revisions from requirements.
-        Set<Resource> resources = new HashSet<Resource>();
+        Set<Resource> resources = new CopyOnWriteSet<Resource>();
         for (Entry<Requirement, List<Capability>> entry
             : m_candidateMap.entrySet())
         {
