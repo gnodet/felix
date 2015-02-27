@@ -64,8 +64,15 @@ public class CaseInsensitiveDictionary extends Dictionary
     {
         this();
 
-        if ( props != null )
+        if ( props instanceof  CaseInsensitiveDictionary )
         {
+            internalMap = new Hashtable( ((CaseInsensitiveDictionary) props).internalMap );
+            originalKeys = new Hashtable( ((CaseInsensitiveDictionary) props).originalKeys );
+        }
+        else if ( props != null )
+        {
+            internalMap = new Hashtable( props.size() );
+            originalKeys = new Hashtable( props.size() );
             Enumeration keys = props.keys();
             while ( keys.hasMoreElements() )
             {
@@ -89,6 +96,11 @@ public class CaseInsensitiveDictionary extends Dictionary
                 internalMap.put( lowerCase, value );
                 originalKeys.put( lowerCase, key );
             }
+        }
+        else
+        {
+            internalMap = new Hashtable();
+            originalKeys = new Hashtable();
         }
     }
 
@@ -276,7 +288,15 @@ public class CaseInsensitiveDictionary extends Dictionary
     static final String toLowerCase( Object keyObject )
     {
         final String key = ( String ) keyObject;
-        return key.toLowerCase( Locale.ENGLISH );
+        for( int i = 0, len = key.length(); i < len; i++ )
+        {
+            char ch = key.charAt(i);
+            if( ch >= 'A' && ch <= 'Z' || ch >= 128 )
+            {
+                return key.toLowerCase( Locale.ENGLISH );
+            }
+        }
+        return key;
     }
 
 

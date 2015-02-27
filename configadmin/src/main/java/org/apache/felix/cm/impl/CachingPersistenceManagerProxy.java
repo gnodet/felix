@@ -20,12 +20,9 @@ package org.apache.felix.cm.impl;
 
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Dictionary;
 import java.util.Enumeration;
 import java.util.Hashtable;
-import java.util.Iterator;
-import java.util.Map;
 import java.util.Vector;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -118,6 +115,11 @@ class CachingPersistenceManagerProxy implements PersistenceManager
      */
     public Enumeration getDictionaries() throws IOException
     {
+        return getDictionaries( null );
+    }
+
+    public Enumeration getDictionaries( SimpleFilter filter ) throws IOException
+    {
         Lock lock = globalLock.readLock();
         try {
             lock.lock();
@@ -137,7 +139,7 @@ class CachingPersistenceManagerProxy implements PersistenceManager
                         String pid = (String) next.get(Constants.SERVICE_PID);
                         if (pid != null)
                         {
-                            cache.put(pid, next);
+                            cache.put(pid, copy( next ) );
                         }
                     }
                     fullyLoaded = true;
@@ -148,7 +150,11 @@ class CachingPersistenceManagerProxy implements PersistenceManager
             Vector configs = new Vector();
             for (Object o : cache.values())
             {
-                configs.add( copy( ( Dictionary ) o ) );
+                Dictionary d = (Dictionary) o;
+                if ( filter == null || filter.matches( d ) )
+                {
+                    configs.add( copy( d ) );
+                }
             }
             return configs.elements();
         } finally {
@@ -182,7 +188,7 @@ class CachingPersistenceManagerProxy implements PersistenceManager
                 if ( loaded == null )
                 {
                     loaded = pm.load(pid);
-                    cache.put(pid, loaded);
+                    cache.put(pid, copy( loaded ) );
                 }
             }
             return copy( loaded );
@@ -221,20 +227,6 @@ class CachingPersistenceManagerProxy implements PersistenceManager
      */
     Dictionary copy( final Dictionary source )
     {
-        Hashtable copy = new Hashtable();
-        if ( source instanceof Map )
-        {
-            copy.putAll( ( Map ) source );
-        }
-        else
-        {
-            Enumeration keys = source.keys();
-            while ( keys.hasMoreElements() )
-            {
-                Object key = keys.nextElement();
-                copy.put( key, source.get( key ) );
-            }
-        }
-        return copy;
+        return new CaseInsensitiveDictionary( source );
     }
 }
