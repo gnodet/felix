@@ -20,8 +20,7 @@ package org.apache.felix.resolver.test;
 
 import java.util.HashMap;
 import java.util.Map;
-import org.osgi.framework.namespace.IdentityNamespace;
-import org.osgi.framework.namespace.PackageNamespace;
+
 import org.osgi.resource.Capability;
 import org.osgi.resource.Resource;
 
