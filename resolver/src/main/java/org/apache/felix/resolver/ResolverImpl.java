@@ -1695,11 +1695,10 @@ public class ResolverImpl implements Resolver
     {
         if (cap.getNamespace().equals(PackageNamespace.PACKAGE_NAMESPACE))
         {
-            if (cycleMap.contains(cap))
+            if (!cycleMap.add(cap))
             {
                 return sources;
             }
-            cycleMap.add(cap);
 
             // Get the package name associated with the capability.
             String pkgName = cap.getAttributes()

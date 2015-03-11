@@ -18,11 +18,12 @@
  */
 package org.apache.felix.resolver;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+
+import org.apache.felix.resolver.util.CopyOnWriteList;
 
 public class ShadowList<T> implements List<T>
 {
@@ -32,7 +33,7 @@ public class ShadowList<T> implements List<T>
     public ShadowList(List<T> original)
     {
         m_original = original;
-        m_shadow = new ArrayList<T>(original);
+        m_shadow = new CopyOnWriteList<T>(original);
     }
 
     public List<T> getOriginal()

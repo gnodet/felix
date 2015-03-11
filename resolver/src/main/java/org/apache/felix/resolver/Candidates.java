@@ -1035,7 +1035,7 @@ class Candidates
                 List<Capability> cands = m_candidateMap.get(origReq);
                 if (cands != null)
                 {
-                    m_candidateMap.put(r, new ArrayList<Capability>(cands));
+                    m_candidateMap.put(r, new CopyOnWriteList<Capability>(cands));
                     for (Capability cand : cands)
                     {
                         Set<Requirement> dependents = m_dependentMap.get(cand);
