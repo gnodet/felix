@@ -1078,10 +1078,10 @@ public class ResolverImpl implements Resolver
                     continue;
                 }
 
-                List<UsedBlames> usedPkgBlames = currentPkgs.m_usedPkgs.get(usedPkgName);
+                Map<Capability, UsedBlames> usedPkgBlames = currentPkgs.m_usedPkgs.get(usedPkgName);
                 if (usedPkgBlames == null)
                 {
-                    usedPkgBlames = new ArrayList<UsedBlames>();
+                    usedPkgBlames = new HashMap<Capability, UsedBlames>();
                     currentPkgs.m_usedPkgs.put(usedPkgName, usedPkgBlames);
                 }
                 for (Blame blame : candSourceBlames)
@@ -1144,27 +1144,19 @@ public class ResolverImpl implements Resolver
     }
 
     private static void addUsedBlame(
-        List<UsedBlames> usedBlames, Capability usedCap,
+        Map<Capability, UsedBlames> usedBlames, Capability usedCap,
         List<Requirement> blameReqs, Capability matchingCap)
     {
         // Create a new Blame based off the used capability and the
         // blame chain requirements.
         Blame newBlame = new Blame(usedCap, blameReqs);
         // Find UsedBlame that uses the same capablity as the new blame.
-        UsedBlames addToBlame = null;
-        for (UsedBlames usedBlame : usedBlames)
-        {
-            if (usedCap.equals(usedBlame.m_cap))
-            {
-                addToBlame = usedBlame;
-                break;
-            }
-        }
+        UsedBlames addToBlame = usedBlames.get(usedCap);
         if (addToBlame == null)
         {
             // If none exist create a new UsedBlame for the capability.
             addToBlame = new UsedBlames(usedCap);
-            usedBlames.add(addToBlame);
+            usedBlames.put(usedCap, addToBlame);
         }
         // Add the new Blame and record the matching capability cause
         // in case the root requirement has multiple cardinality.
@@ -1267,7 +1259,7 @@ public class ResolverImpl implements Resolver
             {
                 continue;
             }
-            for (UsedBlames usedBlames : pkgs.m_usedPkgs.get(pkgName))
+            for (UsedBlames usedBlames : pkgs.m_usedPkgs.get(pkgName).values())
             {
                 if (!isCompatible(session, Collections.singletonList(exportBlame), usedBlames.m_cap, resourcePkgMap))
                 {
@@ -1364,7 +1356,7 @@ public class ResolverImpl implements Resolver
                 continue;
             }
 
-            for (UsedBlames usedBlames : pkgs.m_usedPkgs.get(pkgName))
+            for (UsedBlames usedBlames : pkgs.m_usedPkgs.get(pkgName).values())
             {
                 if (!isCompatible(session, requirementBlames.getValue(), usedBlames.m_cap, resourcePkgMap))
                 {
@@ -1997,9 +1989,9 @@ public class ResolverImpl implements Resolver
             System.out.println("    " + entry.getKey() + " - " + entry.getValue());
         }
         System.out.println("  USED");
-        for (Entry<String, List<UsedBlames>> entry : packages.m_usedPkgs.entrySet())
+        for (Entry<String, Map<Capability, UsedBlames>> entry : packages.m_usedPkgs.entrySet())
         {
-            System.out.println("    " + entry.getKey() + " - " + entry.getValue());
+            System.out.println("    " + entry.getKey() + " - " + entry.getValue().values());
         }
     }
 
@@ -2148,7 +2140,7 @@ public class ResolverImpl implements Resolver
         public final Map<String, Blame> m_exportedPkgs = new HashMap<String, Blame>(32);
         public final Map<String, List<Blame>> m_importedPkgs = new HashMap<String, List<Blame>>(32);
         public final Map<String, List<Blame>> m_requiredPkgs = new HashMap<String, List<Blame>>(32);
-        public final Map<String, List<UsedBlames>> m_usedPkgs = new HashMap<String, List<UsedBlames>>(32);
+        public final Map<String, Map<Capability, UsedBlames>> m_usedPkgs = new HashMap<String, Map<Capability, UsedBlames>>(32);
         public boolean m_isCalculated = false;
 
         public Packages(Resource resource)
