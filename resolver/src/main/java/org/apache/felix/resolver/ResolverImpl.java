@@ -113,6 +113,7 @@ public class ResolverImpl implements Resolver
 
     public int nbIgnored = 0;
     public int nbPermuts = 0;
+    public long maxMem = 0;
 
     public Map<Resource, List<Wire>> resolve(ResolveContext rc) throws ResolutionException
     {
@@ -221,6 +222,8 @@ public class ResolverImpl implements Resolver
                         ? usesPermutations.remove(0)
                         : importPermutations.remove(0);
 //allCandidates.dump();
+                    nbPermuts++;
+                    maxMem = Math.max(maxMem, Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory());
 
                     Map<Resource, ResolutionException> currentFaultyResources = null;
                     try
@@ -1597,7 +1600,7 @@ public class ResolverImpl implements Resolver
                         if ((cands != null) && !cands.isEmpty())
                         {
                             String pkgName = (String) cands.get(0)
-                                .getAttributes().get(PackageNamespace.PACKAGE_NAMESPACE);
+                                    .getAttributes().get(PackageNamespace.PACKAGE_NAMESPACE);
                             exports.remove(pkgName);
                         }
                     }
@@ -1820,7 +1823,7 @@ public class ResolverImpl implements Resolver
                                 {
                                     targetCand = allCandidates.getCandidates(
                                         targetCand.getRequirements(HostNamespace.HOST_NAMESPACE).get(0))
-                                        .iterator().next().getResource();
+                                            .iterator().next().getResource();
                                     targetCand = allCandidates.getWrappedHost(targetCand);
                                 }
 
