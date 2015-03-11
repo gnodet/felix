@@ -412,8 +412,16 @@ public class Felix extends BundleImpl implements Framework
         // Create default bundle stream handler.
         m_bundleStreamHandler = new URLHandlersBundleStreamHandler(this);
 
+        // Create service registry.
+        m_registry = new ServiceRegistry(m_logger, new ServiceRegistryCallbacks() {
+            public void serviceChanged(ServiceEvent event, Dictionary oldProps)
+            {
+                fireServiceEvent(event, oldProps);
+            }
+        });
+
         // Create a resolver and its state.
-        m_resolver = new StatefulResolver(this);
+        m_resolver = new StatefulResolver(this, m_registry);
 
         // Create the extension manager, which we will use as the
         // revision for the system bundle.
@@ -428,14 +436,6 @@ public class Felix extends BundleImpl implements Framework
             // a runtime exception.
             throw new RuntimeException(ex.getMessage());
         }
-
-        // Create service registry.
-        m_registry = new ServiceRegistry(m_logger, new ServiceRegistryCallbacks() {
-            public void serviceChanged(ServiceEvent event, Dictionary oldProps)
-            {
-                fireServiceEvent(event, oldProps);
-            }
-        });
 
         // Create event dispatcher.
         m_dispatcher = new EventDispatcher(m_logger, m_registry);
@@ -833,6 +833,7 @@ public class Felix extends BundleImpl implements Framework
                 }
 
                 // Start services
+                m_resolver.start();
                 m_fwkWiring.start();
                 m_fwkStartLevel.start();
 

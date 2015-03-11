@@ -69,6 +69,7 @@ class StatefulResolver
 {
     private final Logger m_logger;
     private final Felix m_felix;
+    private final ServiceRegistry m_registry;
     private final Resolver m_resolver;
     private boolean m_isResolving = false;
 
@@ -87,9 +88,10 @@ class StatefulResolver
     // Parsed framework environments
     private final Set<String> m_fwkExecEnvSet;
 
-    StatefulResolver(Felix felix)
+    StatefulResolver(Felix felix, ServiceRegistry registry)
     {
         m_felix = felix;
+        m_registry = registry;
         m_logger = m_felix.getLogger();
         m_resolver = new ResolverImpl(m_logger);
 
@@ -115,6 +117,14 @@ class StatefulResolver
         indices = new ArrayList<String>();
         indices.add(BundleRevision.HOST_NAMESPACE);
         m_capSets.put(BundleRevision.HOST_NAMESPACE,  new CapabilitySet(indices, true));
+    }
+
+    void start()
+    {
+        m_registry.registerService(m_felix._getBundleContext(),
+                new String[] { Resolver.class.getName() },
+                m_resolver,
+                null);
     }
 
     synchronized void addRevision(BundleRevision br)
