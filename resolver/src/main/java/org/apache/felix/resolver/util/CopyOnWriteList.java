@@ -18,14 +18,11 @@
  */
 package org.apache.felix.resolver.util;
 
-import java.util.AbstractCollection;
+import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-import java.util.ListIterator;
 
-public class CopyOnWriteList<T> extends AbstractCollection<T> implements List<T> {
+public class CopyOnWriteList<T> extends AbstractList<T> {
 
     Object[] data;
 
@@ -42,40 +39,36 @@ public class CopyOnWriteList<T> extends AbstractCollection<T> implements List<T>
     }
 
     @Override
-    public Iterator<T> iterator() {
-        return new Iterator<T>() {
-            int idx = 0;
-            public boolean hasNext() {
-                return idx < data.length;
-            }
-            public T next() {
-                return (T) data[idx++];
-            }
-            public void remove() {
-                CopyOnWriteList.this.remove(--idx);
-            }
-        };
-    }
-
-    @Override
     public int size() {
         return data.length;
-    }
-
-    public boolean addAll(int index, Collection<? extends T> c) {
-        throw new UnsupportedOperationException();
     }
 
     public T get(int index) {
         return (T) data[index];
     }
 
+    @Override
     public T set(int index, T element) {
-        throw new UnsupportedOperationException();
+        data = Arrays.copyOf(data, data.length);
+        T prev = (T) data[index];
+        data[index] = element;
+        return prev;
     }
 
+    @Override
     public void add(int index, T element) {
-        throw new UnsupportedOperationException();
+        Object[] elements = data;
+        int len = elements.length;
+        Object[] newElements = new Object[len + 1];
+        int numMoved = len - index;
+        if (index > 0) {
+            System.arraycopy(elements, 0, newElements, 0, index);
+        }
+        if (numMoved > 0) {
+            System.arraycopy(elements, index, newElements, index + 1, numMoved);
+        }
+        newElements[index] = element;
+        data = newElements;
     }
 
     public T remove(int index) {
@@ -92,45 +85,6 @@ public class CopyOnWriteList<T> extends AbstractCollection<T> implements List<T>
         }
         data = newElements;
         return oldValue;
-    }
-
-    public int indexOf(Object o) {
-        throw new UnsupportedOperationException();
-    }
-
-    public int lastIndexOf(Object o) {
-        throw new UnsupportedOperationException();
-    }
-
-    public ListIterator<T> listIterator() {
-        throw new UnsupportedOperationException();
-    }
-
-    public ListIterator<T> listIterator(int index) {
-        throw new UnsupportedOperationException();
-    }
-
-    public List<T> subList(int fromIndex, int toIndex) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (o instanceof CopyOnWriteList && ((CopyOnWriteList) o).data == data) {
-            return true;
-        }
-        if (!(o instanceof List))
-            return false;
-
-        Iterator<T> e1 = iterator();
-        Iterator e2 = ((List) o).iterator();
-        while (e1.hasNext() && e2.hasNext()) {
-            T o1 = e1.next();
-            Object o2 = e2.next();
-            if (!(o1==null ? o2==null : o1.equals(o2)))
-                return false;
-        }
-        return !(e1.hasNext() || e2.hasNext());
     }
 
     @Override
