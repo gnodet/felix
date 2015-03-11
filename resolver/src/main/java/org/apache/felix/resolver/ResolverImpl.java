@@ -24,6 +24,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -179,7 +181,7 @@ public class ResolverImpl implements Resolver
                 // fragments, since they will only be pulled in if their
                 // host is already present.
                 Set<Resource> allResources =
-                    new HashSet<Resource>(mandatoryResources);
+                    new LinkedHashSet<Resource>(mandatoryResources);
                 for (Resource resource : optionalResources)
                 {
                     if (allCandidates.isPopulated(resource))
@@ -1081,7 +1083,7 @@ public class ResolverImpl implements Resolver
                 Map<Capability, UsedBlames> usedPkgBlames = currentPkgs.m_usedPkgs.get(usedPkgName);
                 if (usedPkgBlames == null)
                 {
-                    usedPkgBlames = new HashMap<Capability, UsedBlames>();
+                    usedPkgBlames = new LinkedHashMap<Capability, UsedBlames>();
                     currentPkgs.m_usedPkgs.put(usedPkgName, usedPkgBlames);
                 }
                 for (Blame blame : candSourceBlames)
@@ -1345,7 +1347,7 @@ public class ResolverImpl implements Resolver
         // Imported packages are added after required packages because they shadow or override
         // the packages from required bundles.
         Map<String, List<Blame>> allImportRequirePkgs =
-            new HashMap<String, List<Blame>>(pkgs.m_requiredPkgs.size() + pkgs.m_importedPkgs.size());
+            new LinkedHashMap<String, List<Blame>>(pkgs.m_requiredPkgs.size() + pkgs.m_importedPkgs.size());
         allImportRequirePkgs.putAll(pkgs.m_requiredPkgs);
         allImportRequirePkgs.putAll(pkgs.m_importedPkgs);
 
@@ -2138,10 +2140,10 @@ public class ResolverImpl implements Resolver
     private static class Packages
     {
         private final Resource m_resource;
-        public final Map<String, Blame> m_exportedPkgs = new HashMap<String, Blame>(32);
-        public final Map<String, List<Blame>> m_importedPkgs = new HashMap<String, List<Blame>>(32);
-        public final Map<String, List<Blame>> m_requiredPkgs = new HashMap<String, List<Blame>>(32);
-        public final Map<String, Map<Capability, UsedBlames>> m_usedPkgs = new HashMap<String, Map<Capability, UsedBlames>>(32);
+        public final Map<String, Blame> m_exportedPkgs = new LinkedHashMap<String, Blame>(32);
+        public final Map<String, List<Blame>> m_importedPkgs = new LinkedHashMap<String, List<Blame>>(32);
+        public final Map<String, List<Blame>> m_requiredPkgs = new LinkedHashMap<String, List<Blame>>(32);
+        public final Map<String, Map<Capability, UsedBlames>> m_usedPkgs = new LinkedHashMap<String, Map<Capability, UsedBlames>>(32);
         public boolean m_isCalculated = false;
 
         public Packages(Resource resource)

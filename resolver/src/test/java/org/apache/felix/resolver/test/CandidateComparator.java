@@ -108,9 +108,14 @@ public class CandidateComparator implements Comparator<Capability>
         }
         if (c == 0) {
             // We just want to have a deterministic heuristic
-            String n1 = Util.getSymbolicName(cap1.getResource());
-            String n2 = Util.getSymbolicName(cap2.getResource());
+            String n1 = cap1.toString();
+            String n2 = cap2.toString();
             c = n1.compareTo(n2);
+            if (c == 0) {
+                n1 = cap1.getResource().toString();
+                n2 = cap2.getResource().toString();
+                c = n1.compareTo(n2);
+            }
         }
         return c;
     }

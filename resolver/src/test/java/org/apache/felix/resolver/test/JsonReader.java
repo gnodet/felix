@@ -25,6 +25,7 @@ import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class JsonReader {
@@ -114,7 +115,7 @@ public class JsonReader {
 
     private Map<String, Object> readObject() throws IOException {
         read();
-        Map<String, Object> object = new HashMap<String, Object>();
+        Map<String, Object> object = new LinkedHashMap<String, Object>();
         skipWhiteSpace();
         if (readChar('}')) {
             return object;
