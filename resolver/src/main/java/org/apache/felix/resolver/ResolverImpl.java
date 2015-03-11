@@ -273,7 +273,7 @@ public class ResolverImpl implements Resolver
 
                         calculatePackageSpaces(
                             session, allCandidates.getWrappedHost(target), allCandidates,
-                            resourcePkgMap, new HashMap<Capability, List<Resource>>(256),
+                            resourcePkgMap, new HashMap<Capability, Set<Resource>>(256),
                             new HashSet<Resource>(64));
 //System.out.println("+++ PACKAGE SPACES START +++");
 //dumpResourcePkgMap(resourcePkgMap);
@@ -506,7 +506,7 @@ public class ResolverImpl implements Resolver
 
                         calculatePackageSpaces(session,
                             allCandidates.getWrappedHost(host), allCandidates,
-                            resourcePkgMap, new HashMap<Capability, List<Resource>>(256),
+                            resourcePkgMap, new HashMap<Capability, Set<Resource>>(256),
                             new HashSet<Resource>(64));
 //System.out.println("+++ PACKAGE SPACES START +++");
 //dumpResourcePkgMap(resourcePkgMap);
@@ -594,7 +594,7 @@ public class ResolverImpl implements Resolver
         Resource resource,
         Candidates allCandidates,
         Map<Resource, Packages> resourcePkgMap,
-        Map<Capability, List<Resource>> usesCycleMap,
+        Map<Capability, Set<Resource>> usesCycleMap,
         Set<Resource> cycle)
     {
         if (cycle.contains(resource))
@@ -755,7 +755,7 @@ public class ResolverImpl implements Resolver
 
             mergeCandidatePackages(
                 session.getContext(), resource, req, cap, resourcePkgMap, allCandidates,
-                new HashMap<Resource, List<Capability>>(), new HashMap<Resource, List<Resource>>());
+                new HashMap<Resource, Set<Capability>>(), new HashMap<Resource, Set<Resource>>());
         }
 
         // Third, have all candidates to calculate their package spaces.
@@ -852,19 +852,19 @@ public class ResolverImpl implements Resolver
     private void mergeCandidatePackages(
         ResolveContext rc, Resource current, Requirement currentReq,
         Capability candCap, Map<Resource, Packages> resourcePkgMap,
-        Candidates allCandidates, Map<Resource, List<Capability>> cycles, HashMap<Resource, List<Resource>> visitedRequiredBundlesMap)
+        Candidates allCandidates, Map<Resource, Set<Capability>> cycles,
+        HashMap<Resource, Set<Resource>> visitedRequiredBundlesMap)
     {
-        List<Capability> cycleCaps = cycles.get(current);
+        Set<Capability> cycleCaps = cycles.get(current);
         if (cycleCaps == null)
         {
-            cycleCaps = new ArrayList<Capability>();
+            cycleCaps = new HashSet<Capability>();
             cycles.put(current, cycleCaps);
         }
-        if (cycleCaps.contains(candCap))
+        if (!cycleCaps.add(candCap))
         {
             return;
         }
-        cycleCaps.add(candCap);
 
         if (candCap.getNamespace().equals(PackageNamespace.PACKAGE_NAMESPACE))
         {
@@ -881,16 +881,14 @@ public class ResolverImpl implements Resolver
             // will be visible to the current resource.
             Packages candPkgs = resourcePkgMap.get(candCap.getResource());
 
-            List<Resource> visitedRequiredBundles = visitedRequiredBundlesMap.get(current);
+            Set<Resource> visitedRequiredBundles = visitedRequiredBundlesMap.get(current);
             if (visitedRequiredBundles == null)
             {
-                visitedRequiredBundles = new ArrayList<Resource>();
+                visitedRequiredBundles = new HashSet<Resource>();
                 visitedRequiredBundlesMap.put(current, visitedRequiredBundles);
             }
-            if (!visitedRequiredBundles.contains(candCap.getResource()))
+            if (visitedRequiredBundles.add(candCap.getResource()))
             {
-                visitedRequiredBundles.add(candCap.getResource());
-
                 // We have to merge all exported packages from the candidate,
                 // since the current resource requires it.
                 for (Entry<String, Blame> entry : candPkgs.m_exportedPkgs.entrySet())
@@ -1002,7 +1000,7 @@ public class ResolverImpl implements Resolver
         Capability mergeCap, List<Requirement> blameReqs, Capability matchingCap,
         Map<Resource, Packages> resourcePkgMap,
         Candidates allCandidates,
-        Map<Capability, List<Resource>> cycleMap)
+        Map<Capability, Set<Resource>> cycleMap)
     {
         // If there are no uses, then just return.
         // If the candidate resource is the same as the current resource,
@@ -1014,14 +1012,16 @@ public class ResolverImpl implements Resolver
         }
 
         // Check for cycles.
-        List<Resource> list = cycleMap.get(mergeCap);
-        if ((list != null) && list.contains(current))
+        Set<Resource> set = cycleMap.get(mergeCap);
+        if (set == null)
+        {
+            set = new HashSet<Resource>();
+            cycleMap.put(mergeCap, set);
+        }
+        if (!set.add(current))
         {
             return;
         }
-        list = (list == null) ? new ArrayList<Resource>() : list;
-        list.add(current);
-        cycleMap.put(mergeCap, list);
 
         for (Capability candSourceCap : getPackageSources(session, mergeCap, resourcePkgMap))
         {
