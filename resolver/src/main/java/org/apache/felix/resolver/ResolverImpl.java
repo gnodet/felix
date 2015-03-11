@@ -1345,7 +1345,8 @@ public class ResolverImpl implements Resolver
         // Imported packages are added after required packages because they shadow or override
         // the packages from required bundles.
         Map<String, List<Blame>> allImportRequirePkgs =
-            new HashMap<String, List<Blame>>(pkgs.m_requiredPkgs);
+            new HashMap<String, List<Blame>>(pkgs.m_requiredPkgs.size() + pkgs.m_importedPkgs.size());
+        allImportRequirePkgs.putAll(pkgs.m_requiredPkgs);
         allImportRequirePkgs.putAll(pkgs.m_importedPkgs);
 
         for (Entry<String, List<Blame>> requirementBlames : allImportRequirePkgs.entrySet())
