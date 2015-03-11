@@ -49,12 +49,14 @@ public class BigResolutionTest {
     public void testResolutionSpeed() throws Exception {
         ResolveContext rci = buildResolutionContext();
 
-        ResolverImpl resolver1 = new ResolverImpl(new Logger(Logger.LOG_INFO));
-        long t0 = System.currentTimeMillis();
-        Map<Resource, List<Wire>> wiring = new IterativeResolver(resolver1).resolve(rci);
-        long t1 = System.currentTimeMillis();
+        for (int i = 0; i < 10; i++) {
+            ResolverImpl resolver1 = new ResolverImpl(new Logger(Logger.LOG_INFO));
+            long t0 = System.currentTimeMillis();
+            Map<Resource, List<Wire>> wiring = new IterativeResolver(resolver1).resolve(rci);
+            long t1 = System.currentTimeMillis();
 
-        System.out.println("Resolver took " + (t1 - t0) + " ms for " + resolver1.nbPermuts + " permutations");
+            System.out.println("Resolver took " + (t1 - t0) + " ms for " + resolver1.nbPermuts + " permutations");
+        }
     }
 
     private ResolveContext buildResolutionContext() throws IOException, BundleException {
