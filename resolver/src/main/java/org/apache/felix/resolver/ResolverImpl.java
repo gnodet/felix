@@ -242,6 +242,8 @@ public class ResolverImpl implements Resolver
                     session.setMultipleCardCandidates(null);
 
 //allCandidates.dump();
+                    nbPermuts++;
+                    maxMem = Math.max(maxMem, Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory());
 
                     Map<Resource, ResolutionException> currentFaultyResources = null;
                     try

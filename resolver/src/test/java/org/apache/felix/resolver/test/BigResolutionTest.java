@@ -56,7 +56,7 @@ public class BigResolutionTest {
             Map<Resource, List<Wire>> wiring = new IterativeResolver(resolver1).resolve(rci);
             long t1 = System.currentTimeMillis();
 
-            System.out.println("Resolver took " + (t1 - t0) + " ms for " + resolver1.nbPermuts + " permutations, memory: " + resolver1.maxMem);
+            System.out.println("Resolver took " + (t1 - t0) + " ms for " + resolver1.nbPermuts + " permutations (" + resolver1.nbIgnored + " ignored, memory: " + resolver1.maxMem + ")");
         }
     }
 
