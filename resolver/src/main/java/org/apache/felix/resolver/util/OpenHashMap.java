@@ -131,6 +131,7 @@ public class OpenHashMap<K, V> extends AbstractMap<K, V> implements Cloneable {
     @Override
     public void clear() {
         Arrays.fill(this.table, FREE);
+        Arrays.fill(this.values, null);
         distinct = 0;
         freeEntries = table.length; // delta
         trimToSize();
@@ -408,6 +409,7 @@ public class OpenHashMap<K, V> extends AbstractMap<K, V> implements Cloneable {
         V removed = (V) values[i];
 
         this.table[i] = REMOVED;
+        this.values[i] = null;
         this.distinct--;
 
         if (this.distinct < this.lowWaterMark) {
