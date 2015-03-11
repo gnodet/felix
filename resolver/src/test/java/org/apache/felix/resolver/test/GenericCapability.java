@@ -35,7 +35,7 @@ class GenericCapability implements Capability
     public GenericCapability(Resource resource, String namespace)
     {
         m_resource = resource;
-        m_namespace = namespace;
+        m_namespace = namespace.intern();
         m_dirs = new HashMap<String, String>();
         m_attrs = new HashMap<String, Object>();
     }
@@ -47,7 +47,7 @@ class GenericCapability implements Capability
 
     public void addDirective(String name, String value)
     {
-        m_dirs.put(name, value);
+        m_dirs.put(name.intern(), value);
     }
 
     public Map<String, String> getDirectives()
@@ -57,7 +57,7 @@ class GenericCapability implements Capability
 
     public void addAttribute(String name, Object value)
     {
-        m_attrs.put(name, value);
+        m_attrs.put(name.intern(), value);
     }
 
     public Map<String, Object> getAttributes()

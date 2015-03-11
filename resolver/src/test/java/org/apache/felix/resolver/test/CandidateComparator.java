@@ -20,6 +20,7 @@ package org.apache.felix.resolver.test;
 
 import java.util.Comparator;
 
+import org.apache.felix.resolver.Util;
 import org.osgi.framework.Version;
 import org.osgi.framework.namespace.BundleNamespace;
 import org.osgi.framework.namespace.IdentityNamespace;
@@ -104,6 +105,12 @@ public class CandidateComparator implements Comparator<Capability>
                 // highest version to have priority.
                 c = compareVersions(v2, v1);
             }
+        }
+        if (c == 0) {
+            // We just want to have a deterministic heuristic
+            String n1 = Util.getSymbolicName(cap1.getResource());
+            String n2 = Util.getSymbolicName(cap2.getResource());
+            c = n1.compareTo(n2);
         }
         return c;
     }
