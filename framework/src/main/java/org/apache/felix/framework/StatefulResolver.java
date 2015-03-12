@@ -70,7 +70,7 @@ class StatefulResolver
     private final Logger m_logger;
     private final Felix m_felix;
     private final ServiceRegistry m_registry;
-    private final Resolver m_resolver;
+    private final ResolverImpl m_resolver;
     private boolean m_isResolving = false;
 
     // Set of all revisions.
@@ -518,14 +518,69 @@ class StatefulResolver
                     ResolutionException rethrow = null;
                     try
                     {
+                        List<BundleRequirement> dynamics =
+                                Util.getDynamicRequirements(revision.getWiring().getRequirements(null));
+
+                        // Loop through the importer's dynamic requirements to determine if
+                        // there is a matching one for the package from which we want to
+                        // load a class.
+                        Map<String, Object> attrs = Collections.singletonMap(
+                                BundleRevision.PACKAGE_NAMESPACE, (Object) pkgName);
+                        BundleRequirementImpl req = new BundleRequirementImpl(
+                                revision,
+                                BundleRevision.PACKAGE_NAMESPACE,
+                                Collections.EMPTY_MAP,
+                                attrs);
+                        List<BundleCapability> candidates = findProviders(req, false);
+
+                        // Try to find a dynamic requirement that matches the capabilities.
+                        BundleRequirementImpl dynReq = null;
+                        for (int dynIdx = 0;
+                             (candidates.size() > 0) && (dynReq == null) && (dynIdx < dynamics.size());
+                             dynIdx++)
+                        {
+                            for (Iterator<BundleCapability> itCand = candidates.iterator();
+                                 (dynReq == null) && itCand.hasNext(); )
+                            {
+                                Capability cap = itCand.next();
+                                if (CapabilitySet.matches(
+                                        cap,
+                                        ((BundleRequirementImpl) dynamics.get(dynIdx)).getFilter()))
+                                {
+                                    dynReq = (BundleRequirementImpl) dynamics.get(dynIdx);
+                                }
+                            }
+                        }
+
+                        // If we found a matching dynamic requirement, then filter out
+                        // any candidates that do not match it.
+                        if (dynReq != null)
+                        {
+                            for (Iterator<BundleCapability> itCand = candidates.iterator();
+                                 itCand.hasNext(); )
+                            {
+                                Capability cap = itCand.next();
+                                if (!CapabilitySet.matches(
+                                        cap, dynReq.getFilter()))
+                                {
+                                    itCand.remove();
+                                }
+                            }
+                        }
+                        else
+                        {
+                            candidates.clear();
+                        }
+
                         wireMap = m_resolver.resolve(
                             new ResolveContextImpl(
                                 this,
                                 getWirings(),
                                 record,
-                                Collections.EMPTY_LIST,
-                                Collections.EMPTY_LIST,
-                                getFragments()));
+                                Collections.<BundleRevision>emptyList(),
+                                Collections.<BundleRevision>emptyList(),
+                                getFragments()),
+                            revision, dynReq, new ArrayList<Capability>(candidates));
                     }
                     catch (ResolutionException ex)
                     {
