@@ -531,7 +531,7 @@ class StatefulResolver
                                 BundleRevision.PACKAGE_NAMESPACE,
                                 Collections.EMPTY_MAP,
                                 attrs);
-                        List<BundleCapability> candidates = findProviders(req, false);
+                        List<BundleCapability> candidates = findProvidersInternal(record, req, false, true);
 
                         // Try to find a dynamic requirement that matches the capabilities.
                         BundleRequirementImpl dynReq = null;
