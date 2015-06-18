@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.apache.felix.resolver.util.ArrayMap;
 import org.osgi.framework.namespace.BundleNamespace;
 import org.osgi.framework.namespace.ExecutionEnvironmentNamespace;
 import org.osgi.framework.namespace.HostNamespace;
@@ -229,8 +230,6 @@ public class ResolverImpl implements Resolver
                         continue;
                     }
 
-                    rethrow = null;
-
                     resourcePkgMap.clear();
                     session.getPackageSourcesCache().clear();
                     // Null out each time a new permutation is attempted.
@@ -241,13 +240,9 @@ public class ResolverImpl implements Resolver
 //allCandidates.dump();
 
                     Map<Resource, ResolutionException> currentFaultyResources = null;
-                    try
+                    rethrow = allCandidates.checkSubstitutes(importPermutations);
+                    if (rethrow != null)
                     {
-                        allCandidates.checkSubstitutes(importPermutations);
-                    }
-                    catch (ResolutionException e)
-                    {
-                        rethrow = e;
                         continue;
                     }
 
@@ -284,22 +279,18 @@ public class ResolverImpl implements Resolver
 //dumpResourcePkgMap(resourcePkgMap);
 //System.out.println("+++ PACKAGE SPACES END +++");
 
-                        try
-                        {
-                            checkPackageSpaceConsistency(
+                        rethrow = checkPackageSpaceConsistency(
                                 session, allCandidates.getWrappedHost(target),
                                 allCandidates, resourcePkgMap, resultCache);
-                        }
-                        catch (ResolutionException ex)
+                        if (rethrow != null)
                         {
-                            rethrow = ex;
                             if (currentFaultyResources == null)
                             {
                                 currentFaultyResources = new HashMap<Resource, ResolutionException>();
                             }
                             Resource faultyResource = resource;
                             // check that the faulty requirement is not from a fragment
-                            for (Requirement faultyReq : ex.getUnresolvedRequirements())
+                            for (Requirement faultyReq : rethrow.getUnresolvedRequirements())
                             {
                                 if (faultyReq instanceof WrappedRequirement)
                                 {
@@ -309,7 +300,7 @@ public class ResolverImpl implements Resolver
                                     break;
                                 }
                             }
-                            currentFaultyResources.put(faultyResource, ex);
+                            currentFaultyResources.put(faultyResource, rethrow);
                         }
                     }
                     if (currentFaultyResources != null)
@@ -503,13 +494,9 @@ public class ResolverImpl implements Resolver
                             : importPermutations.remove(0);
 //allCandidates.dump();
 
-                        try
+                        rethrow = allCandidates.checkSubstitutes(importPermutations);
+                        if (rethrow != null)
                         {
-                            allCandidates.checkSubstitutes(importPermutations);
-                        }
-                        catch (ResolutionException e)
-                        {
-                            rethrow = e;
                             continue;
                         }
                         // For a dynamic import, the instigating resource
@@ -525,16 +512,9 @@ public class ResolverImpl implements Resolver
 //dumpResourcePkgMap(resourcePkgMap);
 //System.out.println("+++ PACKAGE SPACES END +++");
 
-                        try
-                        {
-                            checkDynamicPackageSpaceConsistency(session,
+                        rethrow = checkDynamicPackageSpaceConsistency(session,
                                 allCandidates.getWrappedHost(host),
                                 allCandidates, resourcePkgMap, new HashMap<Resource, Object>(64));
-                        }
-                        catch (ResolutionException ex)
-                        {
-                            rethrow = ex;
-                        }
                     }
                     while ((rethrow != null)
                         && ((usesPermutations.size() > 0) || (importPermutations.size() > 0)));
@@ -610,11 +590,10 @@ public class ResolverImpl implements Resolver
         Map<Capability, Set<Resource>> usesCycleMap,
         Set<Resource> cycle)
     {
-        if (cycle.contains(resource))
+        if (!cycle.add( resource))
         {
             return;
         }
-        cycle.add(resource);
 
         // Make sure package space hasn't already been calculated.
         Packages resourcePkgs = resourcePkgMap.get(resource);
@@ -649,12 +628,7 @@ public class ResolverImpl implements Resolver
                 // since that requirement will be shared with any other
                 // matching dynamic imports.
                 Requirement r = wire.getRequirement();
-                if (!r.getResource().equals(wire.getRequirer())
-                    || ((r.getDirectives()
-                    .get(PackageNamespace.REQUIREMENT_RESOLUTION_DIRECTIVE) != null)
-                    && r.getDirectives()
-                    .get(PackageNamespace.REQUIREMENT_RESOLUTION_DIRECTIVE)
-                    .equals(PackageNamespace.RESOLUTION_DYNAMIC)))
+                if (!r.getResource().equals(wire.getRequirer()) || Util.isDynamic(r))
                 {
                     r = new WrappedRequirement(wire.getRequirer(), r);
                 }
@@ -677,24 +651,26 @@ public class ResolverImpl implements Resolver
             // the dynamic import is added here last to the parallel reqs/caps
             // list is used later when checking to see if the package being
             // dynamically imported shadows an existing provider.
-            for (Requirement req
-                : Util.getDynamicRequirements(wiring.getResourceRequirements(null)))
+            for (Requirement req : wiring.getResourceRequirements(null))
             {
-                // Get the candidates for the current requirement.
-                List<Capability> candCaps = allCandidates.getCandidates(req);
-                // Optional requirements may not have any candidates.
-                if (candCaps == null)
+                if (Util.isDynamic(req))
                 {
-                    continue;
+                    // Get the candidates for the current requirement.
+                    List<Capability> candCaps = allCandidates.getCandidates(req);
+                    // Optional requirements may not have any candidates.
+                    if (candCaps == null)
+                    {
+                        continue;
+                    }
+                    // Grab first (i.e., highest priority) candidate.
+                    Capability cap = candCaps.get(0);
+                    reqs.add(req);
+                    caps.add(cap);
+                    isDynamicImporting = true;
+                    // Can only dynamically import one at a time, so break
+                    // out of the loop after the first.
+                    break;
                 }
-                // Grab first (i.e., highest priority) candidate.
-                Capability cap = candCaps.get(0);
-                reqs.add(req);
-                caps.add(cap);
-                isDynamicImporting = true;
-                // Can only dynamically import one at a time, so break
-                // out of the loop after the first.
-                break;
             }
         }
         else
@@ -881,8 +857,9 @@ public class ResolverImpl implements Resolver
 
         if (candCap.getNamespace().equals(PackageNamespace.PACKAGE_NAMESPACE))
         {
+            Packages currentPkgs = resourcePkgMap.get(current);
             mergeCandidatePackage(
-                current, false, currentReq, candCap, resourcePkgMap);
+                    currentPkgs.m_importedPkgs, currentReq, candCap);
         }
         else if (candCap.getNamespace().equals(BundleNamespace.BUNDLE_NAMESPACE))
         {
@@ -893,6 +870,7 @@ public class ResolverImpl implements Resolver
             // Get the candidate's package space to determine which packages
             // will be visible to the current resource.
             Packages candPkgs = resourcePkgMap.get(candCap.getResource());
+            Packages currentPkgs = resourcePkgMap.get(current);
 
             Set<Resource> visitedRequiredBundles = visitedRequiredBundlesMap.get(current);
             if (visitedRequiredBundles == null)
@@ -904,14 +882,13 @@ public class ResolverImpl implements Resolver
             {
                 // We have to merge all exported packages from the candidate,
                 // since the current resource requires it.
-                for (Entry<String, Blame> entry : candPkgs.m_exportedPkgs.entrySet())
+                for (Blame blame : candPkgs.m_exportedPkgs.values())
                 {
                     mergeCandidatePackage(
-                        current,
-                        true,
+                        currentPkgs.m_requiredPkgs,
                         currentReq,
-                        entry.getValue().m_cap,
-                        resourcePkgMap);
+                        blame.m_cap
+                    );
                 }
             }
 
@@ -922,14 +899,9 @@ public class ResolverImpl implements Resolver
             {
                 for (Wire w : candWiring.getRequiredResourceWires(null))
                 {
-                    if (w.getRequirement().getNamespace()
-                        .equals(BundleNamespace.BUNDLE_NAMESPACE))
+                    if (BundleNamespace.BUNDLE_NAMESPACE.equals(w.getRequirement().getNamespace()))
                     {
-                        String value = w.getRequirement()
-                            .getDirectives()
-                            .get(BundleNamespace.REQUIREMENT_VISIBILITY_DIRECTIVE);
-                        if ((value != null)
-                            && value.equals(BundleNamespace.VISIBILITY_REEXPORT))
+                        if (Util.isReexport(w.getRequirement()))
                         {
                             mergeCandidatePackages(
                                 rc,
@@ -947,16 +919,13 @@ public class ResolverImpl implements Resolver
             {
                 for (Requirement req : candCap.getResource().getRequirements(null))
                 {
-                    if (req.getNamespace().equals(BundleNamespace.BUNDLE_NAMESPACE))
+                    if (BundleNamespace.BUNDLE_NAMESPACE.equals(req.getNamespace()))
                     {
-                        String value =
-                            req.getDirectives()
-                            .get(BundleNamespace.REQUIREMENT_VISIBILITY_DIRECTIVE);
-                        if ((value != null)
-                            && value.equals(BundleNamespace.VISIBILITY_REEXPORT))
+                        if (Util.isReexport(req))
                         {
                             Capability cap = allCandidates.getFirstCandidate(req);
-                            if (cap != null) {
+                            if (cap != null)
+                            {
                                 mergeCandidatePackages(
                                         rc,
                                         current,
@@ -977,9 +946,8 @@ public class ResolverImpl implements Resolver
     }
 
     private void mergeCandidatePackage(
-        Resource current, boolean requires,
-        Requirement currentReq, Capability candCap,
-        Map<Resource, Packages> resourcePkgMap)
+            Map<String, List<Blame>> packages,
+            Requirement currentReq, Capability candCap)
     {
         if (candCap.getNamespace().equals(PackageNamespace.PACKAGE_NAMESPACE))
         {
@@ -991,11 +959,6 @@ public class ResolverImpl implements Resolver
             List<Requirement> blameReqs = new ArrayList<Requirement>();
             blameReqs.add(currentReq);
 
-            Packages currentPkgs = resourcePkgMap.get(current);
-
-            Map<String, List<Blame>> packages = (requires)
-                ? currentPkgs.m_requiredPkgs
-                : currentPkgs.m_importedPkgs;
             List<Blame> blames = packages.get(pkgName);
             if (blames == null)
             {
@@ -1045,75 +1008,71 @@ public class ResolverImpl implements Resolver
 //                uses = ((FelixCapability) candSourceCap).getUses();
 //            }
 //            else
+            String s = candSourceCap.getDirectives().get(Namespace.CAPABILITY_USES_DIRECTIVE);
+            if (s != null && !s.isEmpty())
             {
-                String s = candSourceCap.getDirectives().get(Namespace.CAPABILITY_USES_DIRECTIVE);
-                if (s != null)
+                // Parse these uses directive.
+                uses = session.getUsesCache().get(s);
+                if (uses == null)
                 {
-                    // Parse these uses directive.
-                    uses = session.getUsesCache().get(s);
-                    if (uses == null)
+                    uses = parseUses(s);
+                    session.getUsesCache().put(s, uses);
+                }
+                for (String usedPkgName : uses)
+                {
+                    Packages candSourcePkgs = resourcePkgMap.get(candSourceCap.getResource());
+                    List<Blame> candSourceBlames;
+                    // Check to see if the used package is exported.
+                    Blame candExportedBlame = candSourcePkgs.m_exportedPkgs.get(usedPkgName);
+                    if (candExportedBlame != null)
                     {
-                        uses = parseUses(s);
-                        session.getUsesCache().put(s, uses);
-                    }
-                }
-                else
-                {
-                    uses = Collections.emptyList();
-                }
-            }
-            for (String usedPkgName : uses)
-            {
-                Packages candSourcePkgs = resourcePkgMap.get(candSourceCap.getResource());
-                List<Blame> candSourceBlames;
-                // Check to see if the used package is exported.
-                Blame candExportedBlame = candSourcePkgs.m_exportedPkgs.get(usedPkgName);
-                if (candExportedBlame != null)
-                {
-                    candSourceBlames = new ArrayList<Blame>(1);
-                    candSourceBlames.add(candExportedBlame);
-                }
-                else
-                {
-                    // If the used package is not exported, check to see if it
-                    // is required.
-                    candSourceBlames = candSourcePkgs.m_requiredPkgs.get(usedPkgName);
-                    // Lastly, if the used package is not required, check to see if it
-                    // is imported.
-                    candSourceBlames = (candSourceBlames != null)
-                        ? candSourceBlames : candSourcePkgs.m_importedPkgs.get(usedPkgName);
-                }
-
-                // If the used package cannot be found, then just ignore it
-                // since it has no impact.
-                if (candSourceBlames == null)
-                {
-                    continue;
-                }
-
-                Map<Capability, UsedBlames> usedPkgBlames = currentPkgs.m_usedPkgs.get(usedPkgName);
-                if (usedPkgBlames == null)
-                {
-                    usedPkgBlames = new LinkedHashMap<Capability, UsedBlames>();
-                    currentPkgs.m_usedPkgs.put(usedPkgName, usedPkgBlames);
-                }
-                for (Blame blame : candSourceBlames)
-                {
-                    if (blame.m_reqs != null)
-                    {
-                        List<Requirement> blameReqs2 = new ArrayList<Requirement>(blameReqs);
-                        // Only add the last requirement in blame chain because
-                        // that is the requirement wired to the blamed capability
-                        blameReqs2.add(blame.m_reqs.get(blame.m_reqs.size() - 1));
-                        addUsedBlame(usedPkgBlames, blame.m_cap, blameReqs2, matchingCap);
-                        mergeUses(session, current, currentPkgs, blame.m_cap, blameReqs2, matchingCap,
-                            resourcePkgMap, allCandidates, cycleMap);
+                        candSourceBlames = new ArrayList<Blame>(1);
+                        candSourceBlames.add(candExportedBlame);
                     }
                     else
                     {
-                        addUsedBlame(usedPkgBlames, blame.m_cap, blameReqs, matchingCap);
-                        mergeUses(session, current, currentPkgs, blame.m_cap, blameReqs, matchingCap,
-                            resourcePkgMap, allCandidates, cycleMap);
+                        // If the used package is not exported, check to see if it
+                        // is required.
+                        candSourceBlames = candSourcePkgs.m_requiredPkgs.get(usedPkgName);
+                        if (candSourceBlames == null)
+                        {
+                            // Lastly, if the used package is not required, check to see if it
+                            // is imported.
+                            candSourceBlames = candSourcePkgs.m_importedPkgs.get(usedPkgName);
+                            // If the used package cannot be found, then just ignore it
+                            // since it has no impact.
+                            if (candSourceBlames == null)
+                            {
+                                continue;
+                            }
+                        }
+                    }
+
+
+                    Map<Capability, UsedBlames> usedPkgBlames = currentPkgs.m_usedPkgs.get(usedPkgName);
+                    if (usedPkgBlames == null)
+                    {
+                        usedPkgBlames = new ArrayMap<Capability, UsedBlames>();
+                        currentPkgs.m_usedPkgs.put(usedPkgName, usedPkgBlames);
+                    }
+                    for (Blame blame : candSourceBlames)
+                    {
+                        if (blame.m_reqs != null)
+                        {
+                            List<Requirement> blameReqs2 = new ArrayList<Requirement>(blameReqs);
+                            // Only add the last requirement in blame chain because
+                            // that is the requirement wired to the blamed capability
+                            blameReqs2.add(blame.m_reqs.get(blame.m_reqs.size() - 1));
+                            addUsedBlame(usedPkgBlames, blame.m_cap, blameReqs2, matchingCap);
+                            mergeUses(session, current, currentPkgs, blame.m_cap, blameReqs2, matchingCap,
+                                resourcePkgMap, allCandidates, cycleMap);
+                        }
+                        else
+                        {
+                            addUsedBlame(usedPkgBlames, blame.m_cap, blameReqs, matchingCap);
+                            mergeUses(session, current, currentPkgs, blame.m_cap, blameReqs, matchingCap,
+                                resourcePkgMap, allCandidates, cycleMap);
+                        }
                     }
                 }
             }
@@ -1176,31 +1135,31 @@ public class ResolverImpl implements Resolver
         addToBlame.addBlame(newBlame, matchingCap);
     }
 
-    private void checkPackageSpaceConsistency(
+    private ResolutionException checkPackageSpaceConsistency(
         ResolveSession session,
         Resource resource,
         Candidates allCandidates,
         Map<Resource, Packages> resourcePkgMap,
-        Map<Resource, Object> resultCache) throws ResolutionException
+        Map<Resource, Object> resultCache)
     {
         if (session.getContext().getWirings().containsKey(resource))
         {
-            return;
+            return null;
         }
-        checkDynamicPackageSpaceConsistency(
+        return checkDynamicPackageSpaceConsistency(
             session, resource, allCandidates, resourcePkgMap, resultCache);
     }
 
-    private void checkDynamicPackageSpaceConsistency(
+    private ResolutionException checkDynamicPackageSpaceConsistency(
         ResolveSession session,
         Resource resource,
         Candidates allCandidates,
         Map<Resource, Packages> resourcePkgMap,
-        Map<Resource, Object> resultCache) throws ResolutionException
+        Map<Resource, Object> resultCache)
     {
         if (resultCache.containsKey(resource))
         {
-            return;
+            return null;
         }
 
         Packages pkgs = resourcePkgMap.get(resource);
@@ -1257,7 +1216,7 @@ public class ResolverImpl implements Resolver
                             "Candidate permutation failed due to a conflict with a "
                             + "fragment import; will try another if possible.",
                             ex);
-                        throw ex;
+                        return ex;
                     }
                 }
             }
@@ -1349,7 +1308,7 @@ public class ResolverImpl implements Resolver
                     "Candidate permutation failed due to a conflict between "
                     + "an export and import; will try another if possible.",
                     rethrow);
-                throw rethrow;
+                return rethrow;
             }
         }
 
@@ -1478,7 +1437,7 @@ public class ResolverImpl implements Resolver
                         "Candidate permutation failed due to a conflict between "
                         + "imports; will try another if possible.",
                         rethrow);
-                    throw rethrow;
+                    return rethrow;
                 }
             }
         }
@@ -1497,13 +1456,10 @@ public class ResolverImpl implements Resolver
             {
                 if (!resource.equals(cap.getResource()))
                 {
-                    try
-                    {
-                        checkPackageSpaceConsistency(
+                    ResolutionException ex = checkPackageSpaceConsistency(
                             session, cap.getResource(),
                             allCandidates, resourcePkgMap, resultCache);
-                    }
-                    catch (ResolutionException ex)
+                    if (ex != null)
                     {
                         // If the lower level check didn't create any permutations,
                         // then we should create an import permutation for the
@@ -1513,11 +1469,12 @@ public class ResolverImpl implements Resolver
                         {
                             allCandidates.permutate(req, importPermutations);
                         }
-                        throw ex;
+                        return ex;
                     }
                 }
             }
         }
+        return null;
     }
 
     private boolean checkMultiple(
@@ -1681,11 +1638,11 @@ public class ResolverImpl implements Resolver
             return sources;
         }
 
-        // Otherwise, need to return generic capabilies that have
+        // Otherwise, need to return generic capabilities that have
         // uses constraints so they are included for consistency
         // checking.
         String uses = cap.getDirectives().get(Namespace.CAPABILITY_USES_DIRECTIVE);
-        if ((uses != null) && (uses.length() > 0))
+        if ((uses != null) && !uses.isEmpty())
         {
             return Collections.singleton(cap);
         }

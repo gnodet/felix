@@ -447,7 +447,7 @@ class Candidates
     private static final int SUBSTITUTED = 2;
     private static final int EXPORTED = 3;
 
-    void checkSubstitutes(List<Candidates> importPermutations) throws ResolutionException
+    ResolutionException checkSubstitutes(List<Candidates> importPermutations)
     {
         Map<Capability, Integer> substituteStatuses = new LinkedHashMap<Capability, Integer>(m_subtitutableMap.size());
         for (Capability substitutable : m_subtitutableMap.keySet())
@@ -518,13 +518,14 @@ class Candidates
                             {
                                 String msg = "Unable to resolve " + dependent.getResource()
                                         + ": missing requirement " + dependent;
-                                throw new ResolutionException(msg, null, Collections.singleton(dependent));
+                                return new ResolutionException(msg, null, Collections.singleton(dependent));
                             }
                         }
                     }
                 }
             }
         }
+        return null;
     }
 
     private boolean isSubstituted(Capability substitutableCap, Map<Capability, Integer> substituteStatuses)

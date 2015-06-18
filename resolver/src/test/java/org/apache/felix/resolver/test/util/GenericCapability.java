@@ -30,6 +30,7 @@ public class GenericCapability implements Capability
     private final String m_namespace;
     private final Map<String, String> m_dirs;
     private final Map<String, Object> m_attrs;
+    private int hash;
 
     public GenericCapability(Resource resource, String namespace)
     {
@@ -92,9 +93,13 @@ public class GenericCapability implements Capability
 
     @Override
     public int hashCode() {
-        int result = m_namespace.hashCode();
-        result = 31 * result + m_dirs.hashCode();
-        result = 31 * result + m_attrs.hashCode();
-        return result;
+        int h = hash;
+        if (h == 0) {
+            h = m_namespace.hashCode();
+            h = 31 * h + m_dirs.hashCode();
+            h = 31 * h + m_attrs.hashCode();
+            hash = h;
+        }
+        return h;
     }
 }
