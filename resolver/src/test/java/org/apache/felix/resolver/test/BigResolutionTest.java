@@ -20,14 +20,7 @@ package org.apache.felix.resolver.test;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import org.apache.felix.resolver.Logger;
 import org.apache.felix.resolver.ResolverImpl;
@@ -53,6 +46,8 @@ import org.osgi.resource.Wiring;
 import org.osgi.service.resolver.HostedCapability;
 import org.osgi.service.resolver.ResolveContext;
 
+import static org.junit.Assert.assertEquals;
+
 public class BigResolutionTest {
 
     @Test
@@ -61,13 +56,34 @@ public class BigResolutionTest {
         ResolveContext rc = buildResolutionContext();
 
         ResolverImpl resolver = new ResolverImpl(new Logger(Logger.LOG_INFO));
-        for (int i = 0; i < 10; i++) {
+
+        System.out.println("Warming up...");
+        Map<Resource, List<Wire>> wires = resolver.resolve(rc);
+
+        RunningStat stats = new RunningStat();
+        for (int i = 0; i < 100; i++) {
             System.gc();
+            Thread.sleep(100);
+            System.gc();
+            Thread.sleep(100);
             long t0 = System.currentTimeMillis();
-            resolver.resolve(rc);
+            Map<Resource, List<Wire>> newWires = resolver.resolve(rc);
             long t1 = System.currentTimeMillis();
             System.out.println("Resolver took " + (t1 - t0) + " ms");
+            stats.put(t1 - t0);
+            assertEquals(wires, newWires);
+
+            if (i != 0 && i % 10 == 0) {
+                System.out.println();
+                System.out.println("Summary");
+                System.out.println("    Min:    " + stats.getMin() + " ms");
+                System.out.println("    Max:    " + stats.getMax() + " ms");
+                System.out.println("    Avg:    " + stats.getAverage() + " ms");
+                System.out.println("    StdDev: " + (stats.getStdDev() / stats.getAverage() * 100.0) + " %");
+                System.out.println();
+            }
         }
+
     }
 
     @Test
@@ -372,4 +388,48 @@ public class BigResolutionTest {
         }
     }
 
+    public static class RunningStat {
+
+        private int count = 0;
+        private double min = Double.MAX_VALUE;
+        private double max = 0.0;
+        private double average = 0.0;
+        private double pwrSumAvg = 0.0;
+        private double stdDev = 0.0;
+
+        /**
+         * Incoming new values used to calculate the running statistics
+         *
+         * @param value the new value
+         */
+        public void put(double value) {
+
+            count++;
+            average += (value - average) / count;
+            pwrSumAvg += (value * value - pwrSumAvg) / count;
+            stdDev = Math.sqrt((pwrSumAvg * count - count * average * average) / (count - 1));
+            min = Math.min(min, value);
+            max = Math.max(max, value);
+
+        }
+
+        public double getMin() {
+            return min;
+        }
+
+        public double getMax() {
+            return max;
+        }
+
+        public double getAverage() {
+
+            return average;
+        }
+
+        public double getStdDev() {
+
+            return Double.isNaN(stdDev) ? 0.0 : stdDev;
+        }
+
+    }
 }
