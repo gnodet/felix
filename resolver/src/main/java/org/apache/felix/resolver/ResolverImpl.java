@@ -151,7 +151,11 @@ public class ResolverImpl implements Resolver
                     Resource resource = it.next();
                     if (Util.isFragment(resource) || (rc.getWirings().get(resource) == null))
                     {
-                        allCandidates.populate(rc, resource, Candidates.MANDATORY);
+                        ResolutionError error = allCandidates.populate(rc, resource, Candidates.MANDATORY);
+                        if (error != null)
+                        {
+                            throw error.toException();
+                        }
                     }
                     else
                     {
@@ -166,12 +170,20 @@ public class ResolverImpl implements Resolver
                     boolean isFragment = Util.isFragment(resource);
                     if (isFragment || (rc.getWirings().get(resource) == null))
                     {
-                        allCandidates.populate(rc, resource, Candidates.OPTIONAL);
+                        ResolutionError error = allCandidates.populate(rc, resource, Candidates.OPTIONAL);
+                        if (error != null)
+                        {
+                            throw error.toException();
+                        }
                     }
                 }
 
                 // Merge any fragments into hosts.
-                allCandidates.prepare(rc);
+                ResolutionError rethrow = allCandidates.prepare(rc);
+                if (rethrow != null)
+                {
+                    throw rethrow.toException();
+                }
 
                 // Create a combined list of populated resources; for
                 // optional resources. We do not need to consider ondemand
@@ -193,8 +205,6 @@ public class ResolverImpl implements Resolver
                 // Record the initial candidate permutation.
                 usesPermutations.add(allCandidates);
 
-                ResolutionException rethrow = null;
-
                 // If a populated resource is a fragment, then its host
                 // must ultimately be verified, so store its host requirement
                 // to use for package space calculation.
@@ -210,7 +220,7 @@ public class ResolverImpl implements Resolver
                 }
 
                 Set<Object> processedDeltas = new HashSet<Object>();
-                Map<Resource, ResolutionException> faultyResources = null;
+                Map<Resource, ResolutionError> faultyResources = null;
                 do
                 {
                     allCandidates = (usesPermutations.size() > 0)
@@ -239,7 +249,7 @@ public class ResolverImpl implements Resolver
 
 //allCandidates.dump();
 
-                    Map<Resource, ResolutionException> currentFaultyResources = null;
+                    Map<Resource, ResolutionError> currentFaultyResources = null;
                     rethrow = allCandidates.checkSubstitutes(importPermutations);
                     if (rethrow != null)
                     {
@@ -281,12 +291,12 @@ public class ResolverImpl implements Resolver
 
                         rethrow = checkPackageSpaceConsistency(
                                 session, allCandidates.getWrappedHost(target),
-                                allCandidates, resourcePkgMap, resultCache);
+                                allCandidates, false, resourcePkgMap, resultCache);
                         if (rethrow != null)
                         {
                             if (currentFaultyResources == null)
                             {
-                                currentFaultyResources = new HashMap<Resource, ResolutionException>();
+                                currentFaultyResources = new HashMap<Resource, ResolutionError>();
                             }
                             Resource faultyResource = resource;
                             // check that the faulty requirement is not from a fragment
@@ -340,14 +350,14 @@ public class ResolverImpl implements Resolver
                             }
                         }
                         // log all the resolution exceptions for the uses constraint violations
-                        for (Map.Entry<Resource, ResolutionException> usesError : faultyResources.entrySet())
+                        for (Map.Entry<Resource, ResolutionError> usesError : faultyResources.entrySet())
                         {
                             m_logger.logUsesConstraintViolation(usesError.getKey(), usesError.getValue());
                         }
                     }
                     if (!retry)
                     {
-                        throw rethrow;
+                        throw rethrow.toException();
                     }
                 }
                 // If there is no exception to rethrow, then this was a clean
@@ -383,10 +393,9 @@ public class ResolverImpl implements Resolver
 
                         if (allCandidates.isPopulated(target))
                         {
-                            wireMap =
-                                populateWireMap(
+                            wireMap = populateWireMap(
                                     rc, allCandidates.getWrappedHost(target),
-                                    resourcePkgMap, wireMap, allCandidates);
+                                    wireMap, allCandidates);
                         }
                     }
                 }
@@ -470,9 +479,16 @@ public class ResolverImpl implements Resolver
                     // Create all candidates pre-populated with the single candidate set
                     // for the resolving dynamic import of the host.
                     Candidates allCandidates = new Candidates(onDemandResources);
-                    allCandidates.populateDynamic(rc, host, dynamicReq, matches);
-                    // Merge any fragments into hosts.
-                    allCandidates.prepare(rc);
+                    ResolutionError rethrow = allCandidates.populateDynamic(rc, host, dynamicReq, matches);
+                    if (rethrow == null)
+                    {
+                        // Merge any fragments into hosts.
+                        rethrow = allCandidates.prepare(rc);
+                    }
+                    if (rethrow != null)
+                    {
+                        throw rethrow.toException();
+                    }
 
                     List<Candidates> usesPermutations = session.getUsesPermutations();
                     List<Candidates> importPermutations = session.getImportPermutations();
@@ -480,12 +496,8 @@ public class ResolverImpl implements Resolver
                     // Record the initial candidate permutation.
                     usesPermutations.add(allCandidates);
 
-                    ResolutionException rethrow;
-
                     do
                     {
-                        rethrow = null;
-
                         resourcePkgMap.clear();
                         session.getPackageSourcesCache().clear();
 
@@ -512,9 +524,9 @@ public class ResolverImpl implements Resolver
 //dumpResourcePkgMap(resourcePkgMap);
 //System.out.println("+++ PACKAGE SPACES END +++");
 
-                        rethrow = checkDynamicPackageSpaceConsistency(session,
+                        rethrow = checkPackageSpaceConsistency(session,
                                 allCandidates.getWrappedHost(host),
-                                allCandidates, resourcePkgMap, new HashMap<Resource, Object>(64));
+                                allCandidates, true, resourcePkgMap, new HashMap<Resource, Object>(64));
                     }
                     while ((rethrow != null)
                         && ((usesPermutations.size() > 0) || (importPermutations.size() > 0)));
@@ -547,7 +559,7 @@ public class ResolverImpl implements Resolver
                         }
                         else
                         {
-                            throw rethrow;
+                            throw rethrow.toException();
                         }
                     }
                     // If there is no exception to rethrow, then this was a clean
@@ -613,9 +625,8 @@ public class ResolverImpl implements Resolver
         // capability or actual capability if resource is resolved or not.
         // We use parallel lists so we can calculate the packages spaces for
         // resolved and unresolved resources in an identical fashion.
-        List<Requirement> reqs = new ArrayList<Requirement>();
-        List<Capability> caps = new ArrayList<Capability>();
-        boolean isDynamicImporting = false;
+        List<WireCandidate> wireCandidates = new ArrayList<WireCandidate>(32);
+        WireCandidate dynamicWireCandidate = null;
         Wiring wiring = session.getContext().getWirings().get(resource);
         if (wiring != null)
         {
@@ -639,8 +650,7 @@ public class ResolverImpl implements Resolver
                 {
                     c = new WrappedCapability(wire.getProvider(), c);
                 }
-                reqs.add(r);
-                caps.add(c);
+                wireCandidates.add(new WireCandidate(r, c));
             }
 
             // Since the resource is resolved, it could be dynamically importing,
@@ -664,9 +674,8 @@ public class ResolverImpl implements Resolver
                     }
                     // Grab first (i.e., highest priority) candidate.
                     Capability cap = candCaps.get(0);
-                    reqs.add(req);
-                    caps.add(cap);
-                    isDynamicImporting = true;
+                    dynamicWireCandidate = new WireCandidate(req, cap);
+                    wireCandidates.add(dynamicWireCandidate);
                     // Can only dynamically import one at a time, so break
                     // out of the loop after the first.
                     break;
@@ -694,16 +703,14 @@ public class ResolverImpl implements Resolver
                         // Use the same requirement, but list each capability separately
                         for (Capability cap : candCaps)
                         {
-                            reqs.add(req);
-                            caps.add(cap);
+                            wireCandidates.add(new WireCandidate(req, cap));
                         }
                     }
                     // Grab first (i.e., highest priority) candidate
                     else
                     {
                         Capability cap = candCaps.get(0);
-                        reqs.add(req);
-                        caps.add(cap);
+                        wireCandidates.add(new WireCandidate(req, cap));
                     }
                 }
             }
@@ -714,10 +721,10 @@ public class ResolverImpl implements Resolver
         resourcePkgs = resourcePkgMap.get(resource);
 
         // Second, add all imported packages to the target resource's package space.
-        for (int i = 0; i < reqs.size(); i++)
+        for (WireCandidate wireCandidate : wireCandidates)
         {
-            Requirement req = reqs.get(i);
-            Capability cap = caps.get(i);
+            Requirement req = wireCandidate.requirement;
+            Capability cap = wireCandidate.capability;
             calculateExportedPackages(
                 session.getContext(), cap.getResource(), allCandidates, resourcePkgMap);
 
@@ -726,7 +733,7 @@ public class ResolverImpl implements Resolver
             // parallel lists above. For the dynamically imported package, make
             // sure that the resource doesn't already have a provider for that
             // package, which would be illegal and shouldn't be allowed.
-            if (isDynamicImporting && ((i + 1) == reqs.size()))
+            if (wireCandidate == dynamicWireCandidate)
             {
                 String pkgName = (String) cap.getAttributes().get(PackageNamespace.PACKAGE_NAMESPACE);
                 if (resourcePkgs.m_exportedPkgs.containsKey(pkgName)
@@ -748,10 +755,10 @@ public class ResolverImpl implements Resolver
         }
 
         // Third, have all candidates to calculate their package spaces.
-        for (Capability cap : caps)
+        for (WireCandidate wireCandidate : wireCandidates)
         {
             calculatePackageSpaces(
-                session, cap.getResource(), allCandidates, resourcePkgMap,
+                session, wireCandidate.capability.getResource(), allCandidates, resourcePkgMap,
                 usesCycleMap, cycle);
         }
 
@@ -764,13 +771,13 @@ public class ResolverImpl implements Resolver
         // only exception is if a resolved resource is dynamically importing, then
         // we need to calculate its uses constraints again to make sure the new
         // import is consistent with the existing package space.
-        if ((wiring == null) || isDynamicImporting)
+        if ((wiring == null) || dynamicWireCandidate != null)
         {
             // Merge uses constraints from required capabilities.
-            for (int i = 0; i < reqs.size(); i++)
+            for (WireCandidate wireCandidate : wireCandidates)
             {
-                Requirement req = reqs.get(i);
-                Capability cap = caps.get(i);
+                Requirement req = wireCandidate.requirement;
+                Capability cap = wireCandidate.capability;
                 // Ignore bundle/package requirements, since they are
                 // considered below.
                 if (!req.getNamespace().equals(BundleNamespace.BUNDLE_NAMESPACE)
@@ -787,7 +794,6 @@ public class ResolverImpl implements Resolver
                         blameReqs,
                         cap,
                         resourcePkgMap,
-                        allCandidates,
                         usesCycleMap);
                 }
             }
@@ -810,7 +816,6 @@ public class ResolverImpl implements Resolver
                             blameReqs,
                             null,
                             resourcePkgMap,
-                            allCandidates,
                             usesCycleMap);
                     }
                 }
@@ -831,7 +836,6 @@ public class ResolverImpl implements Resolver
                         blameReqs,
                         null,
                         resourcePkgMap,
-                        allCandidates,
                         usesCycleMap);
                 }
             }
@@ -975,7 +979,6 @@ public class ResolverImpl implements Resolver
         ResolveSession session, Resource current, Packages currentPkgs,
         Capability mergeCap, List<Requirement> blameReqs, Capability matchingCap,
         Map<Resource, Packages> resourcePkgMap,
-        Candidates allCandidates,
         Map<Capability, Set<Resource>> cycleMap)
     {
         // If there are no uses, then just return.
@@ -1065,13 +1068,13 @@ public class ResolverImpl implements Resolver
                             blameReqs2.add(blame.m_reqs.get(blame.m_reqs.size() - 1));
                             addUsedBlame(usedPkgBlames, blame.m_cap, blameReqs2, matchingCap);
                             mergeUses(session, current, currentPkgs, blame.m_cap, blameReqs2, matchingCap,
-                                resourcePkgMap, allCandidates, cycleMap);
+                                resourcePkgMap, cycleMap);
                         }
                         else
                         {
                             addUsedBlame(usedPkgBlames, blame.m_cap, blameReqs, matchingCap);
                             mergeUses(session, current, currentPkgs, blame.m_cap, blameReqs, matchingCap,
-                                resourcePkgMap, allCandidates, cycleMap);
+                                resourcePkgMap, cycleMap);
                         }
                     }
                 }
@@ -1135,36 +1138,26 @@ public class ResolverImpl implements Resolver
         addToBlame.addBlame(newBlame, matchingCap);
     }
 
-    private ResolutionException checkPackageSpaceConsistency(
-        ResolveSession session,
-        Resource resource,
-        Candidates allCandidates,
-        Map<Resource, Packages> resourcePkgMap,
-        Map<Resource, Object> resultCache)
+    private ResolutionError checkPackageSpaceConsistency(
+            ResolveSession session,
+            Resource resource,
+            Candidates allCandidates,
+            boolean dynamic,
+            Map<Resource, Packages> resourcePkgMap,
+            Map<Resource, Object> resultCache)
     {
-        if (session.getContext().getWirings().containsKey(resource))
+        if (resultCache.containsKey(resource))
         {
             return null;
         }
-        return checkDynamicPackageSpaceConsistency(
-            session, resource, allCandidates, resourcePkgMap, resultCache);
-    }
-
-    private ResolutionException checkDynamicPackageSpaceConsistency(
-        ResolveSession session,
-        Resource resource,
-        Candidates allCandidates,
-        Map<Resource, Packages> resourcePkgMap,
-        Map<Resource, Object> resultCache)
-    {
-        if (resultCache.containsKey(resource))
+        if (!dynamic && session.getContext().getWirings().containsKey(resource))
         {
             return null;
         }
 
         Packages pkgs = resourcePkgMap.get(resource);
 
-        ResolutionException rethrow = null;
+        ResolutionError error = null;
         Candidates permutation = null;
         Set<Requirement> mutated = null;
 
@@ -1193,30 +1186,18 @@ public class ResolverImpl implements Resolver
                         // Try to permutate the source requirement.
                         allCandidates.permutate(sourceBlame.m_reqs.get(0), importPermutations);
                         // Report conflict.
-                        ResolutionException ex = new ResolutionException(
-                            "Uses constraint violation. Unable to resolve resource "
-                            + Util.getSymbolicName(resource)
-                            + " [" + resource
-                            + "] because it is exposed to package '"
-                            + entry.getKey()
-                            + "' from resources "
-                            + Util.getSymbolicName(sourceBlame.m_cap.getResource())
-                            + " [" + sourceBlame.m_cap.getResource()
-                            + "] and "
-                            + Util.getSymbolicName(blame.m_cap.getResource())
-                            + " [" + blame.m_cap.getResource()
-                            + "] via two dependency chains.\n\nChain 1:\n"
-                            + toStringBlame(session.getContext(), allCandidates, sourceBlame)
-                            + "\n\nChain 2:\n"
-                            + toStringBlame(session.getContext(), allCandidates, blame),
-                            null,
-                            Collections.singleton(blame.m_reqs.get(0)));
-                        m_logger.log(
-                            Logger.LOG_DEBUG,
-                            "Candidate permutation failed due to a conflict with a "
-                            + "fragment import; will try another if possible.",
-                            ex);
-                        return ex;
+                        error = new UseConstraintError(
+                                session.getContext(), allCandidates,
+                                resource, entry.getKey(),
+                                sourceBlame, blame);
+                        if (m_logger.isDebugEnabled())
+                        {
+                            m_logger.debug(
+                                    "Candidate permutation failed due to a conflict with a "
+                                            + "fragment import; will try another if possible."
+                                            + " (" + error.getMessage() + ")");
+                        }
+                        return error;
                     }
                 }
             }
@@ -1239,7 +1220,7 @@ public class ResolverImpl implements Resolver
                     {
                         if (checkMultiple(session, usedBlames, usedBlame, allCandidates))
                         {
-                            // Continue to the next usedBlame, if possible we
+                            // Continue to the next blame, if possible we
                             // removed the conflicting candidates.
                             continue;
                         }
@@ -1248,21 +1229,10 @@ public class ResolverImpl implements Resolver
                         permutation = (permutation != null)
                             ? permutation
                             : allCandidates.copy();
-                        rethrow = (rethrow != null)
-                            ? rethrow
-                            : new ResolutionException(
-                                "Uses constraint violation. Unable to resolve resource "
-                                + Util.getSymbolicName(resource)
-                                + " [" + resource
-                                + "] because it exports package '"
-                                + pkgName
-                                + "' and is also exposed to it from resource "
-                                + Util.getSymbolicName(usedBlame.m_cap.getResource())
-                                + " [" + usedBlame.m_cap.getResource()
-                                + "] via the following dependency chain:\n\n"
-                                + toStringBlame(session.getContext(), allCandidates, usedBlame),
-                                null,
-                                null);
+                        if (error == null)
+                        {
+                            error = new UseConstraintError(session.getContext(), allCandidates, resource, pkgName, usedBlame);
+                        }
 
                         mutated = (mutated != null)
                             ? mutated
@@ -1297,18 +1267,19 @@ public class ResolverImpl implements Resolver
                 }
             }
 
-            if (rethrow != null)
+            if (error != null)
             {
                 if (!mutated.isEmpty())
                 {
                     usesPermutations.add(permutation);
                 }
-                m_logger.log(
-                    Logger.LOG_DEBUG,
-                    "Candidate permutation failed due to a conflict between "
-                    + "an export and import; will try another if possible.",
-                    rethrow);
-                return rethrow;
+                if (m_logger.isDebugEnabled())
+                {
+                    m_logger.debug("Candidate permutation failed due to a conflict between "
+                            + "an export and import; will try another if possible."
+                            + " (" + error.getMessage() + ")");
+                }
+                return error;
             }
         }
 
@@ -1340,7 +1311,7 @@ public class ResolverImpl implements Resolver
                     {
                         if (checkMultiple(session, usedBlames, usedBlame, allCandidates))
                         {
-                            // Continue to the next usedBlame, if possible we
+                            // Continue to the next blame, if possible we
                             // removed the conflicting candidates.
                             continue;
                         }
@@ -1349,26 +1320,14 @@ public class ResolverImpl implements Resolver
                         permutation = (permutation != null)
                             ? permutation
                             : allCandidates.copy();
-                        rethrow = (rethrow != null)
-                            ? rethrow
-                            : new ResolutionException(
-                                "Uses constraint violation. Unable to resolve resource "
-                                + Util.getSymbolicName(resource)
-                                + " [" + resource
-                                + "] because it is exposed to package '"
-                                + pkgName
-                                + "' from resources "
-                                + Util.getSymbolicName(requirementBlame.m_cap.getResource())
-                                + " [" + requirementBlame.m_cap.getResource()
-                                + "] and "
-                                + Util.getSymbolicName(usedBlame.m_cap.getResource())
-                                + " [" + usedBlame.m_cap.getResource()
-                                + "] via two dependency chains.\n\nChain 1:\n"
-                                + toStringBlame(session.getContext(), allCandidates, requirementBlame)
-                                + "\n\nChain 2:\n"
-                                + toStringBlame(session.getContext(), allCandidates, usedBlame),
-                                null,
-                                null);
+                        if (error == null)
+                        {
+                            error = new UseConstraintError(
+                                    session.getContext(), allCandidates,
+                                    resource, pkgName,
+                                    requirementBlame, usedBlame
+                            );
+                        }
 
                         mutated = (mutated != null)
                             ? mutated
@@ -1408,7 +1367,7 @@ public class ResolverImpl implements Resolver
                 // for the original import to force a backtracking on the
                 // original candidate decision if no viable candidate is found
                 // for the conflicting uses constraint.
-                if (rethrow != null)
+                if (error != null)
                 {
                     // Add uses permutation if we mutated any candidates.
                     if (!mutated.isEmpty())
@@ -1432,12 +1391,14 @@ public class ResolverImpl implements Resolver
                         }
                     }
 
-                    m_logger.log(
-                        Logger.LOG_DEBUG,
-                        "Candidate permutation failed due to a conflict between "
-                        + "imports; will try another if possible.",
-                        rethrow);
-                    return rethrow;
+                    if (m_logger.isDebugEnabled())
+                    {
+                        m_logger.debug("Candidate permutation failed due to a conflict between "
+                                + "imports; will try another if possible."
+                                + " (" + error.getMessage() + ")"
+                        );
+                    }
+                    return error;
                 }
             }
         }
@@ -1456,10 +1417,10 @@ public class ResolverImpl implements Resolver
             {
                 if (!resource.equals(cap.getResource()))
                 {
-                    ResolutionException ex = checkPackageSpaceConsistency(
+                    error = checkPackageSpaceConsistency(
                             session, cap.getResource(),
-                            allCandidates, resourcePkgMap, resultCache);
-                    if (ex != null)
+                            allCandidates, false, resourcePkgMap, resultCache);
+                    if (error != null)
                     {
                         // If the lower level check didn't create any permutations,
                         // then we should create an import permutation for the
@@ -1469,7 +1430,7 @@ public class ResolverImpl implements Resolver
                         {
                             allCandidates.permutate(req, importPermutations);
                         }
-                        return ex;
+                        return error;
                     }
                 }
             }
@@ -1515,7 +1476,7 @@ public class ResolverImpl implements Resolver
         {
             return;
         }
-        packages = new Packages(resource);
+        packages = new Packages();
 
         // Get all exported packages.
         Wiring wiring = rc.getWirings().get(resource);
@@ -1729,7 +1690,7 @@ public class ResolverImpl implements Resolver
     }
 
     private static Map<Resource, List<Wire>> populateWireMap(
-        ResolveContext rc, Resource resource, Map<Resource, Packages> resourcePkgMap,
+        ResolveContext rc, Resource resource,
         Map<Resource, List<Wire>> wireMap, Candidates allCandidates)
     {
         Resource unwrappedResource = getDeclaredResource(resource);
@@ -1757,7 +1718,7 @@ public class ResolverImpl implements Resolver
                         {
                             // Populate wires for the candidate
                             populateWireMap(rc, cand.getResource(),
-                                    resourcePkgMap, wireMap, allCandidates);
+                                    wireMap, allCandidates);
 
                             Resource provider;
                             if (req.getNamespace().equals(IdentityNamespace.IDENTITY_NAMESPACE)) {
@@ -1900,8 +1861,7 @@ public class ResolverImpl implements Resolver
 
         if (!rc.getWirings().containsKey(dynCand.getResource()))
         {
-            populateWireMap(rc, dynCand.getResource(), resourcePkgMap,
-                wireMap, allCandidates);
+            populateWireMap(rc, dynCand.getResource(), wireMap, allCandidates);
         }
 
         packageWires.add(
@@ -2093,22 +2053,28 @@ public class ResolverImpl implements Resolver
         return cap;
     }
 
-    private static class Packages
+    private static final class WireCandidate
     {
-        private final Resource m_resource;
+        public final Requirement requirement;
+        public final Capability capability;
+
+        public WireCandidate(Requirement requirement, Capability capability)
+        {
+            this.requirement = requirement;
+            this.capability = capability;
+        }
+    }
+
+    private static final class Packages
+    {
         public final Map<String, Blame> m_exportedPkgs = new LinkedHashMap<String, Blame>(32);
         public final Map<String, List<Blame>> m_importedPkgs = new LinkedHashMap<String, List<Blame>>(32);
         public final Map<String, List<Blame>> m_requiredPkgs = new LinkedHashMap<String, List<Blame>>(32);
         public final Map<String, Map<Capability, UsedBlames>> m_usedPkgs = new LinkedHashMap<String, Map<Capability, UsedBlames>>(32);
         public boolean m_isCalculated = false;
-
-        public Packages(Resource resource)
-        {
-            m_resource = resource;
-        }
     }
 
-    private static class Blame
+    private static final class Blame
     {
         public final Capability m_cap;
         public final List<Requirement> m_reqs;
@@ -2150,7 +2116,7 @@ public class ResolverImpl implements Resolver
      * do not have to worry about transitivity of the uses directive
      * from other capability types.
      */
-    private static class UsedBlames
+    private static final class UsedBlames
     {
         public final Capability m_cap;
         public final List<Blame> m_blames = new ArrayList<ResolverImpl.Blame>();
@@ -2211,5 +2177,74 @@ public class ResolverImpl implements Resolver
         {
             return m_blames.toString();
         }
+    }
+
+    private static class UseConstraintError extends ResolutionError {
+
+        private final ResolveContext context;
+        private final Candidates allCandidates;
+        private final Resource resource;
+        private final String pkgName;
+        private final Blame blame1;
+        private final Blame blame2;
+
+        public UseConstraintError(ResolveContext context, Candidates allCandidates, Resource resource, String pkgName, Blame blame) {
+            this(context, allCandidates, resource, pkgName, blame, null);
+        }
+
+        public UseConstraintError(ResolveContext context, Candidates allCandidates, Resource resource, String pkgName, Blame blame1, Blame blame2) {
+            this.context = context;
+            this.allCandidates = allCandidates;
+            this.resource = resource;
+            this.pkgName = pkgName;
+            this.blame1 = blame1;
+            this.blame2 = blame2;
+        }
+
+        public String getMessage() {
+            if (blame2 == null)
+            {
+                return "Uses constraint violation. Unable to resolve resource "
+                        + Util.getSymbolicName(resource)
+                        + " [" + resource
+                        + "] because it exports package '"
+                        + pkgName
+                        + "' and is also exposed to it from resource "
+                        + Util.getSymbolicName(blame1.m_cap.getResource())
+                        + " [" + blame1.m_cap.getResource()
+                        + "] via the following dependency chain:\n\n"
+                        + toStringBlame(context, allCandidates, blame1);
+            }
+            else
+            {
+                return  "Uses constraint violation. Unable to resolve resource "
+                        + Util.getSymbolicName(resource)
+                        + " [" + resource
+                        + "] because it is exposed to package '"
+                        + pkgName
+                        + "' from resources "
+                        + Util.getSymbolicName(blame1.m_cap.getResource())
+                        + " [" + blame1.m_cap.getResource()
+                        + "] and "
+                        + Util.getSymbolicName(blame2.m_cap.getResource())
+                        + " [" + blame2.m_cap.getResource()
+                        + "] via two dependency chains.\n\nChain 1:\n"
+                        + toStringBlame(context, allCandidates, blame1)
+                        + "\n\nChain 2:\n"
+                        + toStringBlame(context, allCandidates, blame2);
+            }
+        }
+
+        public Collection<Requirement> getUnresolvedRequirements() {
+            if (blame2 == null)
+            {
+                return Collections.emptyList();
+            }
+            else
+            {
+                return Collections.singleton(blame2.m_reqs.get(0));
+            }
+        }
+
     }
 }
