@@ -592,7 +592,7 @@ public class ResolverImpl implements Resolver
         return wireMap;
     }
 
-    private void calculatePackageSpaces(
+    private static void calculatePackageSpaces(
         ResolveSession session,
         Resource resource,
         Candidates allCandidates,
@@ -838,7 +838,7 @@ public class ResolverImpl implements Resolver
         }
     }
 
-    private void mergeCandidatePackages(
+    private static void mergeCandidatePackages(
         ResolveContext rc, Resource current, Requirement currentReq,
         Capability candCap, Map<Resource, Packages> resourcePkgMap,
         Candidates allCandidates, Map<Resource, Set<Capability>> cycles,
@@ -945,7 +945,7 @@ public class ResolverImpl implements Resolver
         cycles.remove(current);
     }
 
-    private void mergeCandidatePackage(
+    private static void mergeCandidatePackage(
             Map<String, List<Blame>> packages,
             Requirement currentReq, Capability candCap)
     {
@@ -971,7 +971,7 @@ public class ResolverImpl implements Resolver
         }
     }
 
-    private void mergeUses(
+    private static void mergeUses(
         ResolveSession session, Resource current, Packages currentPkgs,
         Capability mergeCap, List<Requirement> blameReqs, Capability matchingCap,
         Map<Resource, Packages> resourcePkgMap,
@@ -1521,7 +1521,7 @@ public class ResolverImpl implements Resolver
         resourcePkgMap.put(resource, packages);
     }
 
-    private boolean isCompatible(
+    private static boolean isCompatible(
         ResolveSession session, List<Blame> currentBlames, Capability candCap,
         Map<Resource, Packages> resourcePkgMap)
     {
@@ -1571,7 +1571,7 @@ public class ResolverImpl implements Resolver
         return true;
     }
 
-    private Set<Capability> getPackageSources(
+    private static Set<Capability> getPackageSources(
         ResolveSession session, Capability cap, Map<Resource, Packages> resourcePkgMap)
     {
         Map<Capability, Set<Capability>> packageSourcesCache = session.getPackageSourcesCache();
