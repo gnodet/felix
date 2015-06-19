@@ -42,4 +42,10 @@ public class OpenHashMapSet<K, V> extends OpenHashMap<K, CopyOnWriteSet<V>> {
         }
         return copy;
     }
+
+    @Override
+    protected CopyOnWriteSet<V> compute(K key) {
+        return new CopyOnWriteSet<V>();
+    }
+
 }

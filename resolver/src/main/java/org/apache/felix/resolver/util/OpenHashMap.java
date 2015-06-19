@@ -360,6 +360,46 @@ public class OpenHashMap<K, V> extends AbstractMap<K, V> implements Cloneable {
     }
 
     /**
+     * Get or compute the value;
+     * @param key
+     * @return
+     */
+    public V getOrCompute(K key) {
+        int i = indexOfInsertion(key);
+        if (i < 0) { //already contained
+            i = -i - 1;
+            return (V) this.values[i];
+        }
+
+        V v = compute(key);
+
+        if (this.distinct > this.highWaterMark) {
+            int newCapacity = chooseGrowCapacity(this.distinct + 1, this.minLoadFactor, this.maxLoadFactor);
+            rehash(newCapacity);
+            put(key, v);
+            return v;
+        }
+
+        if (this.table[i] == FREE) {
+            this.freeEntries--;
+        }
+        this.table[i] = key;
+        this.values[i] = v;
+        this.distinct++;
+
+        if (this.freeEntries < 1) { //delta
+            int newCapacity = chooseGrowCapacity(this.distinct + 1, this.minLoadFactor, this.maxLoadFactor);
+            rehash(newCapacity);
+        }
+
+        return v;
+    }
+
+    protected V compute(K key) {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
      * Rehashes the contents of the receiver into a new table with a smaller or larger capacity. This method is called
      * automatically when the number of keys in the receiver exceeds the high water mark or falls below the low water
      * mark.

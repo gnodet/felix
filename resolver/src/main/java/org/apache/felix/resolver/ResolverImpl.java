@@ -122,10 +122,8 @@ public class ResolverImpl implements Resolver
     public Map<Resource, List<Wire>> resolve(ResolveContext rc) throws ResolutionException
     {
         ResolveSession session = new ResolveSession(rc);
-        Map<Resource, List<Wire>> wireMap =
-            new HashMap<Resource, List<Wire>>();
-        Map<Resource, Packages> resourcePkgMap =
-            new HashMap<Resource, Packages>();
+        Map<Resource, List<Wire>> wireMap = new HashMap<Resource, List<Wire>>();
+        Map<Resource, Packages> resourcePkgMap = new HashMap<Resource, Packages>();
 
         // Make copies of arguments in case we want to modify them.
         Collection<Resource> mandatoryResources = new ArrayList<Resource>(rc.getMandatoryResources());
@@ -665,15 +663,13 @@ public class ResolverImpl implements Resolver
             {
                 if (Util.isDynamic(req))
                 {
-                    // Get the candidates for the current requirement.
-                    List<Capability> candCaps = allCandidates.getCandidates(req);
+                    // Grab first (i.e., highest priority) candidate for the current requirement.
+                    Capability cap = allCandidates.getFirstCandidate(req);
                     // Optional requirements may not have any candidates.
-                    if (candCaps == null)
+                    if (cap == null)
                     {
                         continue;
                     }
-                    // Grab first (i.e., highest priority) candidate.
-                    Capability cap = candCaps.get(0);
                     dynamicWireCandidate = new WireCandidate(req, cap);
                     wireCandidates.add(dynamicWireCandidate);
                     // Can only dynamically import one at a time, so break
@@ -1052,10 +1048,10 @@ public class ResolverImpl implements Resolver
                     }
 
 
-                    Map<Capability, UsedBlames> usedPkgBlames = currentPkgs.m_usedPkgs.get(usedPkgName);
+                    UsesMap usedPkgBlames = currentPkgs.m_usedPkgs.get(usedPkgName);
                     if (usedPkgBlames == null)
                     {
-                        usedPkgBlames = new ArrayMap<Capability, UsedBlames>();
+                        usedPkgBlames = new UsesMap();
                         currentPkgs.m_usedPkgs.put(usedPkgName, usedPkgBlames);
                     }
                     for (Blame blame : candSourceBlames)
@@ -1119,20 +1115,14 @@ public class ResolverImpl implements Resolver
     }
 
     private static void addUsedBlame(
-        Map<Capability, UsedBlames> usedBlames, Capability usedCap,
+            UsesMap usedBlames, Capability usedCap,
         List<Requirement> blameReqs, Capability matchingCap)
     {
         // Create a new Blame based off the used capability and the
         // blame chain requirements.
         Blame newBlame = new Blame(usedCap, blameReqs);
-        // Find UsedBlame that uses the same capablity as the new blame.
-        UsedBlames addToBlame = usedBlames.get(usedCap);
-        if (addToBlame == null)
-        {
-            // If none exist create a new UsedBlame for the capability.
-            addToBlame = new UsedBlames(usedCap);
-            usedBlames.put(usedCap, addToBlame);
-        }
+        // Find or create UsedBlame that uses the same capablity as the new blame.
+        UsedBlames addToBlame = usedBlames.getOrCompute(usedCap);
         // Add the new Blame and record the matching capability cause
         // in case the root requirement has multiple cardinality.
         addToBlame.addBlame(newBlame, matchingCap);
@@ -1907,7 +1897,7 @@ public class ResolverImpl implements Resolver
             System.out.println("    " + entry.getKey() + " - " + entry.getValue());
         }
         System.out.println("  USED");
-        for (Entry<String, Map<Capability, UsedBlames>> entry : packages.m_usedPkgs.entrySet())
+        for (Entry<String, UsesMap> entry : packages.m_usedPkgs.entrySet())
         {
             System.out.println("    " + entry.getKey() + " - " + entry.getValue().values());
         }
@@ -1930,7 +1920,7 @@ public class ResolverImpl implements Resolver
         public final Map<String, Blame> m_exportedPkgs = new LinkedHashMap<String, Blame>(32);
         public final Map<String, List<Blame>> m_importedPkgs = new LinkedHashMap<String, List<Blame>>(32);
         public final Map<String, List<Blame>> m_requiredPkgs = new LinkedHashMap<String, List<Blame>>(32);
-        public final Map<String, Map<Capability, UsedBlames>> m_usedPkgs = new LinkedHashMap<String, Map<Capability, UsedBlames>>(32);
+        public final Map<String, UsesMap> m_usedPkgs = new LinkedHashMap<String, UsesMap>(32);
         public boolean m_isCalculated = false;
     }
 
@@ -2039,7 +2029,7 @@ public class ResolverImpl implements Resolver
         }
     }
 
-    private static class UseConstraintError extends ResolutionError {
+    private static final class UseConstraintError extends ResolutionError {
 
         private final ResolveContext m_context;
         private final Candidates m_allCandidates;
@@ -2235,4 +2225,12 @@ public class ResolverImpl implements Resolver
         }
 
     }
+
+    private static class UsesMap extends ArrayMap<Capability, UsedBlames> {
+        @Override
+        protected UsedBlames compute(Capability cap) {
+            return new UsedBlames(cap);
+        }
+    }
+
 }

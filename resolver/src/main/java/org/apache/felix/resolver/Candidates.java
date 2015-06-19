@@ -826,11 +826,7 @@ class Candidates
             m_candidateMap.remove(req);
         }
         // Update the delta with the removed capability
-        CopyOnWriteSet<Capability> capPath = m_delta.get(req);
-        if (capPath == null) {
-            capPath = new CopyOnWriteSet<Capability>();
-            m_delta.put(req, capPath);
-        }
+        CopyOnWriteSet<Capability> capPath = m_delta.getOrCompute(req);
         capPath.add(cap);
     }
 
@@ -839,11 +835,7 @@ class Candidates
         List<Capability> l = m_candidateMap.get(req);
         l.removeAll(caps);
         // Update candidates delta with the removed capabilities.
-        CopyOnWriteSet<Capability> capPath = m_delta.get(req);
-        if (capPath == null) {
-            capPath = new CopyOnWriteSet<Capability>();
-            m_delta.put(req, capPath);
-        }
+        CopyOnWriteSet<Capability> capPath = m_delta.getOrCompute(req);
         capPath.addAll(caps);
         return l;
     }
@@ -1090,12 +1082,7 @@ class Candidates
             for (Capability cap : caps)
             {
                 // Record the requirement as dependent on the capability.
-                CopyOnWriteSet<Requirement> dependents = m_dependentMap.get(cap);
-                if (dependents == null)
-                {
-                    dependents = new CopyOnWriteSet<Requirement>();
-                    m_dependentMap.put(cap, dependents);
-                }
+                CopyOnWriteSet<Requirement> dependents = m_dependentMap.getOrCompute(cap);
                 dependents.add(req);
 
                 // Keep track of hosts and associated fragments.

@@ -42,4 +42,10 @@ public class OpenHashMapList<K, V> extends OpenHashMap<K, CopyOnWriteList<V>> {
         }
         return copy;
     }
+
+    @Override
+    protected CopyOnWriteList<V> compute(K key) {
+        return new CopyOnWriteList<V>();
+    }
+
 }

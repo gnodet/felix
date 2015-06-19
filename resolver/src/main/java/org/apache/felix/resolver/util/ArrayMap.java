@@ -68,6 +68,29 @@ public class ArrayMap<K, V> extends AbstractMap<K, V> {
     }
 
     @SuppressWarnings("unchecked")
+    public V getOrCompute(K key) {
+        for (int i = 0, l = size << 1; i < l; i += 2) {
+            if (key.equals(table[i])) {
+                return (V) table[i + 1];
+            }
+        }
+        V v = compute(key);
+        if (size << 1 == table.length) {
+            Object[] n = new Object[table.length << 1];
+            System.arraycopy(table, 0, n, 0, table.length);
+            table = n;
+        }
+        int i = size++ << 1;
+        table[i++] = key;
+        table[i] = v;
+        return v;
+    }
+
+    protected V compute(K key) {
+        throw new UnsupportedOperationException();
+    }
+
+    @SuppressWarnings("unchecked")
     public V computeIfAbsent(K key, Function<? super K, ? extends V> mappingFunction) {
         for (int i = 0, l = size << 1; i < l; i += 2) {
             if (key.equals(table[i])) {
