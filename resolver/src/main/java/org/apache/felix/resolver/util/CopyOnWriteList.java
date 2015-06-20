@@ -22,7 +22,7 @@ import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Collection;
 
-public class CopyOnWriteList<T> extends AbstractList<T> {
+public class CopyOnWriteList<T> extends AbstractList<T> implements Cloneable {
 
     Object[] data;
 
@@ -85,6 +85,23 @@ public class CopyOnWriteList<T> extends AbstractList<T> {
         }
         data = newElements;
         return oldValue;
+    }
+
+    /**
+     * Clone this object
+     *
+     * @return a cloned object.
+     */
+    @Override
+    @SuppressWarnings("unchecked")
+    public CopyOnWriteList<T> clone() {
+        try {
+            return (CopyOnWriteList<T>) super.clone();
+        } catch (CloneNotSupportedException exc) {
+            InternalError e = new InternalError();
+            e.initCause(exc);
+            throw e; //should never happen since we are cloneable
+        }
     }
 
     @Override

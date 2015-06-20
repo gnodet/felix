@@ -31,7 +31,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import org.apache.felix.resolver.util.CopyOnWriteSet;
-import org.apache.felix.resolver.util.OpenHashMap;
+import org.apache.felix.resolver.util.LinkedOpenHashMap;
 import org.osgi.framework.Constants;
 import org.osgi.resource.Capability;
 
@@ -72,7 +72,7 @@ public void dump()
         for (int i = 0; (indexProps != null) && (i < indexProps.size()); i++)
         {
             m_indices.put(
-                indexProps.get(i), new OpenHashMap<Object, Set<Capability>>());
+                indexProps.get(i), new LinkedOpenHashMap<Object, Set<Capability>>());
         }
     }
 

@@ -25,6 +25,7 @@ public class ArrayMap<K, V> extends AbstractMap<K, V> {
 
     private Object[] table;
     private int size;
+    protected transient volatile Collection<V> values;
 
     public ArrayMap() {
         this(32);
@@ -108,6 +109,37 @@ public class ArrayMap<K, V> extends AbstractMap<K, V> {
     }
 
     @Override
+    public Collection<V> values() {
+        if (values == null) {
+            values = new AbstractCollection<V>() {
+                @Override
+                public Iterator<V> iterator() {
+                    return new Iterator<V>() {
+                        int index = 0;
+
+                        public boolean hasNext() {
+                            return index < size;
+                        }
+
+                        public V next() {
+                            if (index >= size) {
+                                throw new NoSuchElementException();
+                            }
+                            return (V) table[(index++ << 1) + 1];
+                        }
+                    };
+                }
+
+                @Override
+                public int size() {
+                    return size;
+                }
+            };
+        }
+        return values;
+    }
+
+    @Override
     public Set<Entry<K, V>> entrySet() {
         return new AbstractSet<Entry<K, V>>() {
             @Override
@@ -124,8 +156,9 @@ public class ArrayMap<K, V> extends AbstractMap<K, V> {
                         if (index >= size) {
                             throw new NoSuchElementException();
                         }
-                        entry.key = table[index * 2];
-                        entry.value = table[index * 2 + 1];
+                        int i = index << 1;
+                        entry.key = table[i];
+                        entry.value = table[i + 1];
                         index++;
                         return entry;
                     }

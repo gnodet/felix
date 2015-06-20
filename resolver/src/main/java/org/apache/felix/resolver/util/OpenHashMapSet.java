@@ -18,7 +18,7 @@
  */
 package org.apache.felix.resolver.util;
 
-public class OpenHashMapSet<K, V> extends OpenHashMap<K, CopyOnWriteSet<V>> {
+public class OpenHashMapSet<K, V> extends LinkedOpenHashMap<K, CopyOnWriteSet<V>> {
 
     public OpenHashMapSet() {
         super();
@@ -28,16 +28,13 @@ public class OpenHashMapSet<K, V> extends OpenHashMap<K, CopyOnWriteSet<V>> {
         super(initialCapacity);
     }
 
-    public OpenHashMapSet(int initialCapacity, double minLoadFactor, double maxLoadFactor) {
-        super(initialCapacity, minLoadFactor, maxLoadFactor);
-    }
-
+    @SuppressWarnings("unchecked")
     public OpenHashMapSet<K, V> deepClone() {
-        OpenHashMapSet<K, V> copy = (OpenHashMapSet<K, V>) super.clone();
-        Object[] values = copy.values;
+        OpenHashMapSet<K, V> copy = (OpenHashMapSet<K, V>) clone();
+        Object[] values = copy.value;
         for (int i = 0, l = values.length; i < l; i++) {
             if (values[i] != null) {
-                values[i] = new CopyOnWriteSet<V>((CopyOnWriteSet<V>) values[i]);
+                values[i] = ((CopyOnWriteSet<V>) values[i]).clone();
             }
         }
         return copy;

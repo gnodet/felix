@@ -77,6 +77,7 @@ public class GenericCapability implements Capability
             + getAttributes();
     }
 
+    /*
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -102,4 +103,5 @@ public class GenericCapability implements Capability
         }
         return h;
     }
+    */
 }

@@ -23,7 +23,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 
-public class CopyOnWriteSet<E> extends AbstractSet<E> {
+public class CopyOnWriteSet<E> extends AbstractSet<E> implements Cloneable {
 
     Object[] data;
 
@@ -105,6 +105,23 @@ public class CopyOnWriteSet<E> extends AbstractSet<E> {
     @Override
     public int hashCode() {
         return Arrays.hashCode(data);
+    }
+
+    /**
+     * Clone this object
+     *
+     * @return a cloned object.
+     */
+    @Override
+    @SuppressWarnings("unchecked")
+    public CopyOnWriteSet<E> clone() {
+        try {
+            return (CopyOnWriteSet<E>) super.clone();
+        } catch (CloneNotSupportedException exc) {
+            InternalError e = new InternalError();
+            e.initCause(exc);
+            throw e; //should never happen since we are cloneable
+        }
     }
 
 }

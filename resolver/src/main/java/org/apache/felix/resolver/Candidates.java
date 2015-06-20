@@ -24,18 +24,13 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 
-import org.apache.felix.resolver.util.CopyOnWriteSet;
-import org.apache.felix.resolver.util.CopyOnWriteList;
-import org.apache.felix.resolver.util.OpenHashMapList;
-import org.apache.felix.resolver.util.OpenHashMapSet;
-import org.apache.felix.resolver.util.ShadowList;
+import org.apache.felix.resolver.util.*;
 import org.osgi.framework.Version;
 import org.osgi.framework.namespace.HostNamespace;
 import org.osgi.framework.namespace.IdentityNamespace;
@@ -106,9 +101,9 @@ class Candidates
         m_dependentMap = new OpenHashMapSet<Capability, Requirement>();
         m_candidateMap = new OpenHashMapList<Requirement, Capability>();
         m_allWrappedHosts = new HashMap<Resource, WrappedResource>();
-        m_populateResultCache = new LinkedHashMap<Resource, Object>();
+        m_populateResultCache = new LinkedOpenHashMap<Resource, Object>();
         m_validOnDemandResources = validOnDemandResources;
-        m_subtitutableMap = new LinkedHashMap<Capability, Requirement>();
+        m_subtitutableMap = new LinkedOpenHashMap<Capability, Requirement>();
         m_delta = new OpenHashMapSet<Requirement, Capability>(3);
     }
 
@@ -389,16 +384,16 @@ class Candidates
         {
             return;
         }
-        Map<String, List<Capability>> exportNames = new LinkedHashMap<String, List<Capability>>();
+        LinkedOpenHashMap<String, List<Capability>> exportNames = new LinkedOpenHashMap<String, List<Capability>>() {
+            @Override
+            protected List<Capability> compute(String s) {
+                return new ArrayList<Capability>(1);
+            }
+        };
         for (Capability packageExport : packageExports)
         {
             String packageName = (String) packageExport.getAttributes().get(PackageNamespace.PACKAGE_NAMESPACE);
-            List<Capability> caps = exportNames.get(packageName);
-            if (caps == null)
-            {
-                caps = new ArrayList<Capability>(1);
-                exportNames.put(packageName, caps);
-            }
+            List<Capability> caps = exportNames.getOrCompute(packageName);
             caps.add(packageExport);
         }
         // Check if any requirements substitute one of the exported packages
@@ -407,7 +402,7 @@ class Candidates
             List<Capability> substitutes = m_candidateMap.get(req);
             if (substitutes != null && !substitutes.isEmpty())
             {
-                String packageName = (String) substitutes.iterator().next().getAttributes().get(PackageNamespace.PACKAGE_NAMESPACE);
+                String packageName = (String) substitutes.get(0).getAttributes().get(PackageNamespace.PACKAGE_NAMESPACE);
                 List<Capability> exportedPackages = exportNames.get(packageName);
                 if (exportedPackages != null)
                 {
@@ -437,7 +432,7 @@ class Candidates
 
     ResolutionError checkSubstitutes(List<Candidates> importPermutations)
     {
-        Map<Capability, Integer> substituteStatuses = new LinkedHashMap<Capability, Integer>(m_subtitutableMap.size());
+        Map<Capability, Integer> substituteStatuses = new LinkedOpenHashMap<Capability, Integer>(m_subtitutableMap.size());
         for (Capability substitutable : m_subtitutableMap.keySet())
         {
             // initialize with unprocessed

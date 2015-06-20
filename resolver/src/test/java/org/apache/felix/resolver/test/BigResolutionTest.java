@@ -53,12 +53,12 @@ public class BigResolutionTest {
     @Test
     @Ignore
     public void testResolutionSpeed() throws Exception {
-        ResolveContext rc = buildResolutionContext();
+//        ResolveContext rc = buildResolutionContext();
 
         ResolverImpl resolver = new ResolverImpl(new Logger(Logger.LOG_INFO));
 
         System.out.println("Warming up...");
-        Map<Resource, List<Wire>> wires = resolver.resolve(rc);
+        Map<Resource, List<Wire>> wires = resolver.resolve(buildResolutionContext());
 
         RunningStat stats = new RunningStat();
         for (int i = 0; i < 100; i++) {
@@ -66,12 +66,13 @@ public class BigResolutionTest {
             Thread.sleep(100);
             System.gc();
             Thread.sleep(100);
+            ResolveContext rc = buildResolutionContext();
             long t0 = System.currentTimeMillis();
             Map<Resource, List<Wire>> newWires = resolver.resolve(rc);
             long t1 = System.currentTimeMillis();
             System.out.println("Resolver took " + (t1 - t0) + " ms");
             stats.put(t1 - t0);
-            assertEquals(wires, newWires);
+//            assertEquals(wires, newWires);
 
             if (i != 0 && i % 10 == 0) {
                 System.out.println();
