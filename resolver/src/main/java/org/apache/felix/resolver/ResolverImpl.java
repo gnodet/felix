@@ -18,17 +18,8 @@
  */
 package org.apache.felix.resolver;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
 
 import org.apache.felix.resolver.util.ArrayMap;
 import org.apache.felix.resolver.util.LinkedOpenHashMap;
@@ -258,6 +249,58 @@ public class ResolverImpl implements Resolver
                         continue;
                     }
 
+                    Map<Resource, Resource> hosts = new LinkedOpenHashMap<Resource, Resource>();
+                    for (Resource resource : allResources)
+                    {
+                        // If we are resolving a fragment, then get its
+                        // host candidate and verify it instead.
+                        Requirement hostReq = hostReqs.get(resource);
+                        if (hostReq != null)
+                        {
+                            Capability hostCap = allCandidates.getFirstCandidate(hostReq);
+                            // If the resource is an already resolved fragment and can not
+                            // be attached to new hosts, there will be no matching host,
+                            // so ignore this resource
+                            if (hostCap == null)
+                            {
+                                continue;
+                            }
+                            resource = hostCap.getResource();
+                        }
+                        hosts.put(resource, allCandidates.getWrappedHost(resource));
+                    }
+                    resourcePkgMap = calculatePackageSpaces(session, allCandidates, hosts.values());
+
+                    // Check package consistency
+                    Map<Resource, Object> resultCache = new HashMap<Resource, Object>(resourcePkgMap.size());
+                    for (Map.Entry<Resource, Resource> entry : hosts.entrySet())
+                    {
+                        rethrow = checkPackageSpaceConsistency(
+                                session, entry.getValue(),
+                                allCandidates, false, resourcePkgMap, resultCache);
+                        if (rethrow != null)
+                        {
+                            if (currentFaultyResources == null)
+                            {
+                                currentFaultyResources = new HashMap<Resource, ResolutionError>();
+                            }
+                            Resource faultyResource = entry.getKey();
+                            // check that the faulty requirement is not from a fragment
+                            for (Requirement faultyReq : rethrow.getUnresolvedRequirements())
+                            {
+                                if (faultyReq instanceof WrappedRequirement)
+                                {
+                                    faultyResource =
+                                            ((WrappedRequirement) faultyReq)
+                                                    .getDeclaredRequirement().getResource();
+                                    break;
+                                }
+                            }
+                            currentFaultyResources.put(faultyResource, rethrow);
+                        }
+                    }
+
+                    /*
                     // Reuse a resultCache map for checking package consistency
                     // for all resources.
                     Map<Resource, Object> resultCache =
@@ -321,6 +364,7 @@ public class ResolverImpl implements Resolver
                             currentFaultyResources.put(faultyResource, rethrow);
                         }
                     }
+                    */
                     if (currentFaultyResources != null)
                     {
                         if (faultyResources == null)
@@ -606,6 +650,484 @@ public class ResolverImpl implements Resolver
         }
 
         return wireMap;
+    }
+
+    private static List<WireCandidate> getWireCandidates(ResolveSession session, Candidates allCandidates, Resource resource)
+    {
+        // Create parallel lists for requirement and proposed candidate
+        // capability or actual capability if resource is resolved or not.
+        // We use parallel lists so we can calculate the packages spaces for
+        // resolved and unresolved resources in an identical fashion.
+        List<WireCandidate> wireCandidates = new ArrayList<WireCandidate>(256);
+        WireCandidate dynamicWireCandidate = null;
+        Wiring wiring = session.getContext().getWirings().get(resource);
+        if (wiring != null)
+        {
+            // Use wires to get actual requirements and satisfying capabilities.
+            for (Wire wire : wiring.getRequiredResourceWires(null))
+            {
+                // Wrap the requirement as a hosted requirement if it comes
+                // from a fragment, since we will need to know the host. We
+                // also need to wrap if the requirement is a dynamic import,
+                // since that requirement will be shared with any other
+                // matching dynamic imports.
+                Requirement r = wire.getRequirement();
+                if (!r.getResource().equals(wire.getRequirer()) || Util.isDynamic(r))
+                {
+                    r = new WrappedRequirement(wire.getRequirer(), r);
+                }
+                // Wrap the capability as a hosted capability if it comes
+                // from a fragment, since we will need to know the host.
+                Capability c = wire.getCapability();
+                if (!c.getResource().equals(wire.getProvider()))
+                {
+                    c = new WrappedCapability(wire.getProvider(), c);
+                }
+                wireCandidates.add(new WireCandidate(r, c));
+            }
+
+            // Since the resource is resolved, it could be dynamically importing,
+            // so check to see if there are candidates for any of its dynamic
+            // imports.
+            //
+            // NOTE: If the resource is dynamically importing, the fact that
+            // the dynamic import is added here last to the parallel reqs/caps
+            // list is used later when checking to see if the package being
+            // dynamically imported shadows an existing provider.
+            for (Requirement req : wiring.getResourceRequirements(null))
+            {
+                if (Util.isDynamic(req))
+                {
+                    // Grab first (i.e., highest priority) candidate for the current requirement.
+                    Capability cap = allCandidates.getFirstCandidate(req);
+                    // Optional requirements may not have any candidates.
+                    if (cap == null)
+                    {
+                        continue;
+                    }
+                    dynamicWireCandidate = new WireCandidate(req, cap);
+                    wireCandidates.add(dynamicWireCandidate);
+                    // Can only dynamically import one at a time, so break
+                    // out of the loop after the first.
+                    break;
+                }
+            }
+        }
+        else
+        {
+            for (Requirement req : resource.getRequirements(null))
+            {
+                if (!Util.isDynamic(req))
+                {
+                    // Get the candidates for the current requirement.
+                    List<Capability> candCaps = allCandidates.getCandidates(req);
+                    // Optional requirements may not have any candidates.
+                    if (candCaps == null)
+                    {
+                        continue;
+                    }
+
+                    // For multiple cardinality requirements, we need to grab
+                    // all candidates.
+                    if (Util.isMultiple(req))
+                    {
+                        // Use the same requirement, but list each capability separately
+                        for (Capability cap : candCaps)
+                        {
+                            wireCandidates.add(new WireCandidate(req, cap));
+                        }
+                    }
+                    // Grab first (i.e., highest priority) candidate
+                    else
+                    {
+                        Capability cap = candCaps.get(0);
+                        wireCandidates.add(new WireCandidate(req, cap));
+                    }
+                }
+            }
+        }
+        return wireCandidates;
+    }
+
+    private static LinkedOpenHashMap<String, Blame> getExportedPackages(
+            ResolveSession session,
+            Candidates allCandidates,
+            Resource resource)
+    {
+        // Get all exported packages.
+        Wiring wiring = session.getContext().getWirings().get(resource);
+        List<Capability> caps = (wiring != null)
+                ? wiring.getResourceCapabilities(null)
+                : resource.getCapabilities(null);
+        LinkedOpenHashMap<String, Blame> exports = new LinkedOpenHashMap<String, Blame>(caps.size());
+        for (Capability cap : caps)
+        {
+            if (cap.getNamespace().equals(PackageNamespace.PACKAGE_NAMESPACE))
+            {
+                if (!cap.getResource().equals(resource))
+                {
+                    cap = new WrappedCapability(resource, cap);
+                }
+                exports.put(
+                        (String) cap.getAttributes().get(PackageNamespace.PACKAGE_NAMESPACE),
+                        new Blame(cap, null));
+            }
+        }
+        // Remove substitutable exports that were imported.
+        // For resolved resources Wiring.getCapabilities()
+        // already excludes imported substitutable exports, but
+        // for resolving resources we must look in the candidate
+        // map to determine which exports are substitutable.
+        if (!exports.isEmpty())
+        {
+            if (wiring == null)
+            {
+                for (Requirement req : resource.getRequirements(null))
+                {
+                    if (req.getNamespace().equals(PackageNamespace.PACKAGE_NAMESPACE))
+                    {
+                        Capability cand = allCandidates.getFirstCandidate(req);
+                        if (cand != null)
+                        {
+                            String pkgName = (String) cand.getAttributes().get(PackageNamespace.PACKAGE_NAMESPACE);
+                            exports.remove(pkgName);
+                        }
+                    }
+                }
+            }
+        }
+        return exports;
+    }
+
+    private static void mergeCandidatePackages(
+            ResolveSession session,
+            Map<Resource, LinkedOpenHashMap<String, Blame>> allExported,
+            Candidates allCandidates,
+            Packages packages,
+            Requirement currentReq,
+            Capability candCap,
+            Set<Capability> capabilityCycles,
+            Set<Resource> requiredBundlesCycles)
+    {
+        if (!capabilityCycles.add(candCap))
+        {
+            return;
+        }
+
+        if (candCap.getNamespace().equals(PackageNamespace.PACKAGE_NAMESPACE))
+        {
+            mergeCandidatePackage(packages.m_importedPkgs, currentReq, candCap);
+        }
+        else if (candCap.getNamespace().equals(BundleNamespace.BUNDLE_NAMESPACE))
+        {
+
+            // Get the candidate's package space to determine which packages
+            // will be visible to the current resource.
+            if (requiredBundlesCycles.add(candCap.getResource()))
+            {
+                // We have to merge all exported packages from the candidate,
+                // since the current resource requires it.
+                for (Blame blame : allExported.get(candCap.getResource()).values())
+                {
+                    mergeCandidatePackage(
+                            packages.m_requiredPkgs,
+                            currentReq,
+                            blame.m_cap
+                    );
+                }
+            }
+
+            // If the candidate requires any other bundles with reexport visibility,
+            // then we also need to merge their packages too.
+            Wiring candWiring = session.getContext().getWirings().get(candCap.getResource());
+            if (candWiring != null)
+            {
+                for (Wire w : candWiring.getRequiredResourceWires(null))
+                {
+                    if (BundleNamespace.BUNDLE_NAMESPACE.equals(w.getRequirement().getNamespace()))
+                    {
+                        if (Util.isReexport(w.getRequirement()))
+                        {
+                            mergeCandidatePackages(
+                                    session,
+                                    allExported,
+                                    allCandidates,
+                                    packages,
+                                    currentReq,
+                                    w.getCapability(),
+                                    capabilityCycles,
+                                    requiredBundlesCycles);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (Requirement req : candCap.getResource().getRequirements(null))
+                {
+                    if (BundleNamespace.BUNDLE_NAMESPACE.equals(req.getNamespace()))
+                    {
+                        if (Util.isReexport(req))
+                        {
+                            Capability cap = allCandidates.getFirstCandidate(req);
+                            if (cap != null)
+                            {
+                                mergeCandidatePackages(
+                                        session,
+                                        allExported,
+                                        allCandidates,
+                                        packages,
+                                        currentReq,
+                                        cap,
+                                        capabilityCycles,
+                                        requiredBundlesCycles);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static Packages getPackages(
+            ResolveSession session,
+            Candidates allCandidates,
+            Map<Resource, List<WireCandidate>> allWireCandidates,
+            Map<Resource, LinkedOpenHashMap<String, Blame>> allExported,
+            Resource resource)
+    {
+        Packages packages = new Packages();
+
+        // First, all all exported packages
+        packages.m_exportedPkgs.putAll(allExported.get(resource));
+
+        // Second, add all imported packages to the target resource's package space.
+        for (WireCandidate wire : allWireCandidates.get(resource))
+        {
+            // If this resource is dynamically importing, then the last requirement
+            // is the dynamic import being resolved, since it is added last to the
+            // parallel lists above. For the dynamically imported package, make
+            // sure that the resource doesn't already have a provider for that
+            // package, which would be illegal and shouldn't be allowed.
+            if (Util.isDynamic(wire.requirement)) {
+                String pkgName = (String) wire.capability.getAttributes().get(PackageNamespace.PACKAGE_NAMESPACE);
+                if (packages.m_exportedPkgs.containsKey(pkgName)
+                        || packages.m_importedPkgs.containsKey(pkgName)
+                        || packages.m_requiredPkgs.containsKey(pkgName)) {
+                    throw new IllegalArgumentException(
+                            "Resource "
+                                    + resource
+                                    + " cannot dynamically import package '"
+                                    + pkgName
+                                    + "' since it already has access to it.");
+                }
+            }
+
+            mergeCandidatePackages(
+                    session,
+                    allExported,
+                    allCandidates,
+                    packages,
+                    wire.requirement,
+                    wire.capability,
+                    new HashSet<Capability>(),
+                    new HashSet<Resource>());
+        }
+
+        return packages;
+    }
+
+    private static void computeUses(
+            ResolveSession session,
+            Candidates allCandidates,
+            Map<Resource, List<WireCandidate>> allWireCandidates,
+            Map<Resource, LinkedOpenHashMap<String, Blame>> allExported,
+            Map<Resource, Packages> allPackages,
+            Resource resource)
+    {
+        List<WireCandidate> candidates = allWireCandidates.get(resource);
+        Packages packages = allPackages.get(resource);
+        // Fourth, if the target resource is unresolved or is dynamically importing,
+        // then add all the uses constraints implied by its imported and required
+        // packages to its package space.
+        // NOTE: We do not need to do this for resolved resources because their
+        // package space is consistent by definition and these uses constraints
+        // are only needed to verify the consistency of a resolving resource. The
+        // only exception is if a resolved resource is dynamically importing, then
+        // we need to calculate its uses constraints again to make sure the new
+        // import is consistent with the existing package space.
+        Wiring wiring = session.getContext().getWirings().get(resource);
+        Set<Capability> usesCycleMap = new HashSet<Capability>();
+
+        // TODO: do that slightly better
+        WireCandidate dynamicWire = null;
+        if (!candidates.isEmpty())
+        {
+            WireCandidate w = candidates.get(candidates.size() - 1);
+            if (Util.isDynamic(w.requirement))
+            {
+                dynamicWire = w;
+            }
+        }
+
+        if (wiring == null || dynamicWire != null)
+        {
+            // Merge uses constraints from required capabilities.
+            for (WireCandidate w : candidates) {
+                String namespace = w.requirement.getNamespace();
+                if (!BundleNamespace.BUNDLE_NAMESPACE.equals(namespace) && !PackageNamespace.PACKAGE_NAMESPACE.equals(namespace))
+                {
+                    mergeUses(session, allPackages, resource, packages, w.capability, Collections.singletonList(w.requirement), w.capability, usesCycleMap);
+                }
+            }
+
+            // Merge uses constraints from imported packages.
+            for (List<Blame> blames : packages.m_importedPkgs.values())
+            {
+                for (Blame b : blames)
+                {
+                    mergeUses(session, allPackages, resource, packages, b.m_cap, Collections.singletonList(b.m_reqs.get(0)), null, usesCycleMap);
+                }
+            }
+
+            // Merge uses constraints from required bundles.
+            for (List<Blame> blames : packages.m_requiredPkgs.values())
+            {
+                for (Blame b : blames)
+                {
+                    mergeUses(session, allPackages, resource, packages, b.m_cap, Collections.singletonList(b.m_reqs.get(0)), null, usesCycleMap);
+                }
+            }
+        }
+    }
+
+    private static void mergeUses(
+            ResolveSession session,
+            Map<Resource, Packages> allPackages,
+            Resource resource,
+            Packages packages,
+            Capability mergeCap,
+            List<Requirement> blameReqs,
+            Capability matchingCap,
+            Set<Capability> cycleMap) {
+        // If there are no uses, then just return.
+        // If the candidate resource is the same as the current resource,
+        // then we don't need to verify and merge the uses constraints
+        // since this will happen as we build up the package space.
+        if (resource.equals(mergeCap.getResource())) {
+            return;
+        }
+
+        // Check for cycles.
+        if (!cycleMap.add(mergeCap)) {
+            return;
+        }
+
+        for (Capability candSourceCap : getPackageSources(session, mergeCap, allPackages))
+        {
+            String s = candSourceCap.getDirectives().get(Namespace.CAPABILITY_USES_DIRECTIVE);
+            if (s != null && !s.isEmpty())
+            {
+                Packages candSourcePkgs = allPackages.get(candSourceCap.getResource());
+                // Parse these uses directive.
+                List<String> uses = session.getUsesCache().getOrCompute(s);
+                for (String usedPkgName : uses)
+                {
+                    List<Blame> candSourceBlames;
+                    // Check to see if the used package is exported.
+                    Blame candExportedBlame = candSourcePkgs.m_exportedPkgs.get(usedPkgName);
+                    if (candExportedBlame != null)
+                    {
+                        candSourceBlames = Collections.singletonList(candExportedBlame);
+                    }
+                    else
+                    {
+                        // If the used package is not exported, check to see if it
+                        // is required.
+                        candSourceBlames = candSourcePkgs.m_requiredPkgs.get(usedPkgName);
+                        // Lastly, if the used package is not required, check to see if it
+                        // is imported.
+                        if (candSourceBlames == null)
+                        {
+                            candSourceBlames = candSourcePkgs.m_importedPkgs.get(usedPkgName);
+                        }
+                    }
+                    // If the used package cannot be found, then just ignore it
+                    // since it has no impact.
+                    if (candSourceBlames != null)
+                    {
+                        ArrayMap<Capability, UsedBlames> usedPkgBlames = packages.m_usedPkgs.getOrCompute(usedPkgName);
+                        for (Blame blame : candSourceBlames)
+                        {
+                            if (blame.m_reqs != null)
+                            {
+                                List<Requirement> blameReqs2 = new ArrayList<Requirement>(blameReqs.size() + 1);
+                                blameReqs2.addAll(blameReqs);
+                                // Only add the last requirement in blame chain because
+                                // that is the requirement wired to the blamed capability
+                                blameReqs2.add(blame.m_reqs.get(blame.m_reqs.size() - 1));
+                                addUsedBlame(usedPkgBlames, blame.m_cap, blameReqs2, matchingCap);
+                                mergeUses(session, allPackages, resource, packages, blame.m_cap, blameReqs2, matchingCap, cycleMap);
+                            }
+                            else
+                            {
+                                addUsedBlame(usedPkgBlames, blame.m_cap, blameReqs, matchingCap);
+                                mergeUses(session, allPackages, resource, packages, blame.m_cap, blameReqs, matchingCap, cycleMap);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static LinkedOpenHashMap<Resource, Packages> calculatePackageSpaces(
+            ResolveSession session,
+            Candidates allCandidates,
+            Collection<Resource> hosts)
+    {
+        // Compute wire candidates
+        LinkedOpenHashMap<Resource, List<WireCandidate>> allWireCandidates = new LinkedOpenHashMap<Resource, List<WireCandidate>>(allCandidates.getNbResources());
+        Set<Resource> toCompute = new HashSet<Resource>(hosts);
+        while (!toCompute.isEmpty())
+        {
+            Resource resource = toCompute.iterator().next();
+            List<WireCandidate> wireCandidates = getWireCandidates(session, allCandidates, resource);
+            allWireCandidates.put(resource, wireCandidates);
+            for (WireCandidate wire : wireCandidates)
+            {
+                Resource r = wire.capability.getResource();
+                if (!allWireCandidates.containsKey(r))
+                {
+                    toCompute.add(r);
+                }
+            }
+            toCompute.remove(resource);
+        }
+
+        // Get all exported packages.
+        LinkedOpenHashMap<Resource, LinkedOpenHashMap<String, Blame>> allExported = new LinkedOpenHashMap<Resource, LinkedOpenHashMap<String, Blame>>(allWireCandidates.size());
+        for (Resource resource : allWireCandidates.keySet())
+        {
+            allExported.put(resource,
+                            getExportedPackages(session, allCandidates, resource));
+        }
+
+        // Compute package lists
+        LinkedOpenHashMap<Resource, Packages> allPackages = new LinkedOpenHashMap<Resource, Packages>(allWireCandidates.size());
+        for (Resource resource : allWireCandidates.keySet())
+        {
+            allPackages.put(resource,
+                            getPackages(session, allCandidates, allWireCandidates, allExported, resource));
+        }
+
+        // Compute uses
+        for (Resource resource : allWireCandidates.keySet())
+        {
+            computeUses(session, allCandidates, allWireCandidates, allExported, allPackages, resource);
+        }
+
+        return allPackages;
     }
 
     private static void calculatePackageSpaces(
@@ -1243,7 +1765,8 @@ public class ResolverImpl implements Resolver
                             // See if we can permutate the candidates for blamed
                             // requirement; there may be no candidates if the resource
                             // associated with the requirement is already resolved.
-                            if (permutation.canRemoveCandidate(req)) {
+                            if (permutation.canRemoveCandidate(req))
+                            {
                                 permutation.removeFirstCandidate(req);
                                 mutated.add(req);
                                 break;
@@ -2001,29 +2524,37 @@ public class ResolverImpl implements Resolver
 
     private static final class Packages
     {
-        public final LinkedOpenHashMap<String, Blame> m_exportedPkgs = new LinkedOpenHashMap<String, Blame>(32);
-        public final LinkedOpenHashMap<String, List<Blame>> m_importedPkgs = new LinkedOpenHashMap<String, List<Blame>>(32) {
-          public List<Blame> compute(String s) {
-              return new ArrayList<Blame>();
-          }
-        };
-        public final LinkedOpenHashMap<String, List<Blame>> m_requiredPkgs = new LinkedOpenHashMap<String, List<Blame>>(32) {
-            public List<Blame> compute(String s) {
-                return new ArrayList<Blame>();
-            }
-        };
-        public final LinkedOpenHashMap<String, ArrayMap<Capability, UsedBlames>> m_usedPkgs = new LinkedOpenHashMap<String, ArrayMap<Capability, UsedBlames>>(32) {
-            @Override
-            protected ArrayMap<Capability, UsedBlames> compute(String s) {
-                return new ArrayMap<Capability, UsedBlames>() {
-                    @Override
-                    protected UsedBlames compute(Capability key) {
-                        return new UsedBlames(key);
-                    }
-                };
-            }
-        };
+        public final LinkedOpenHashMap<String, Blame> m_exportedPkgs;
+        public final LinkedOpenHashMap<String, List<Blame>> m_importedPkgs;
+        public final LinkedOpenHashMap<String, List<Blame>> m_requiredPkgs;
+        public final LinkedOpenHashMap<String, ArrayMap<Capability, UsedBlames>> m_usedPkgs;
         public boolean m_isCalculated = false;
+
+        public Packages()
+        {
+            m_exportedPkgs = new LinkedOpenHashMap<String, Blame>(32);
+            m_importedPkgs = new LinkedOpenHashMap<String, List<Blame>>(32) {
+                public List<Blame> compute(String s) {
+                    return new ArrayList<Blame>();
+                }
+            };
+            m_requiredPkgs = new LinkedOpenHashMap<String, List<Blame>>(32) {
+                public List<Blame> compute(String s) {
+                    return new ArrayList<Blame>();
+                }
+            };
+            m_usedPkgs = new LinkedOpenHashMap<String, ArrayMap<Capability, UsedBlames>>(64) {
+                @Override
+                protected ArrayMap<Capability, UsedBlames> compute(String s) {
+                    return new ArrayMap<Capability, UsedBlames>() {
+                        @Override
+                        protected UsedBlames compute(Capability key) {
+                            return new UsedBlames(key);
+                        }
+                    };
+                }
+            };
+        }
     }
 
     private static final class Blame
