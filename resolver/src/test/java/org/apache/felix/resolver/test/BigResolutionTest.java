@@ -59,9 +59,11 @@ public class BigResolutionTest {
 
         System.out.println("Warming up...");
         Map<Resource, List<Wire>> wires = resolver.resolve(buildResolutionContext());
+        resolver.resolve(buildResolutionContext());
 
+        System.out.println("Running...");
         RunningStat stats = new RunningStat();
-        for (int i = 0; i < 100; i++) {
+        for (int i = 1; i <= 100; i++) {
             System.gc();
             Thread.sleep(100);
             System.gc();
@@ -74,7 +76,7 @@ public class BigResolutionTest {
             stats.put(t1 - t0);
 //            assertEquals(wires, newWires);
 
-            if (i != 0 && i % 10 == 0) {
+            if (i % 10 == 0) {
                 System.out.println();
                 System.out.println("Summary");
                 System.out.println("    Min:    " + stats.getMin() + " ms");

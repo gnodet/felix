@@ -336,12 +336,12 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             Object[] key = this.key;
             Object curr;
             if ((curr = key[pos = mix(k.hashCode()) & this.mask]) != null) {
-                if (curr == k || curr.equals(k)) {
+                if (curr.equals(k)) {
                     return (V) this.value[pos];
                 }
 
                 while ((curr = key[pos = pos + 1 & this.mask]) != null) {
-                    if (curr == k || curr.equals(k)) {
+                    if (curr.equals(k)) {
                         return (V) this.value[pos];
                     }
                 }
@@ -692,11 +692,11 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             int pos;
             if ((curr = key[pos = mix(k.hashCode()) & this.mask]) == null) {
                 return this.defRetValue;
-            } else if (curr == k || k.equals(curr)) {
+            } else if (k.equals(curr)) {
                 return (V) this.value[pos];
             } else {
                 while ((curr = key[pos = pos + 1 & this.mask]) != null) {
-                    if (curr == k || k.equals(curr)) {
+                    if (k.equals(curr)) {
                         return (V) this.value[pos];
                     }
                 }
@@ -715,11 +715,11 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             int pos;
             if ((curr = key[pos = mix(k.hashCode()) & this.mask]) == null) {
                 return false;
-            } else if (curr == k || k.equals(curr)) {
+            } else if (k.equals(curr)) {
                 return true;
             } else {
                 while ((curr = key[pos = pos + 1 & this.mask]) != null) {
-                    if (curr == k || k.equals(curr)) {
+                    if (k.equals(curr)) {
                         return true;
                     }
                 }
