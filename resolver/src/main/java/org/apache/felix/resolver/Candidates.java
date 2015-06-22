@@ -811,7 +811,7 @@ class Candidates
         List<Capability> candidates = m_candidateMap.get(req);
         if (candidates != null && !candidates.isEmpty())
         {
-            return m_candidateMap.get(req).get(0);
+            return candidates.get(0);
         }
         return null;
     }
