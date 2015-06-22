@@ -250,8 +250,8 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             this.first = this.last = pos;
             this.link[pos] = -1L;
         } else {
-            this.link[this.last] ^= (this.link[this.last] ^ (long) pos & 4294967295L) & 4294967295L;
-            this.link[pos] = ((long) this.last & 4294967295L) << 32 | 4294967295L;
+            this.link[this.last] ^= (this.link[this.last] ^ (long) pos & 0xFFFFFFFFL) & 0xFFFFFFFFL;
+            this.link[pos] = ((long) this.last & 0xFFFFFFFFL) << 32 | 0xFFFFFFFFL;
             this.last = pos;
         }
 
@@ -309,8 +309,8 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             this.first = this.last = pos;
             this.link[pos] = -1L;
         } else {
-            this.link[this.last] ^= (this.link[this.last] ^ (long) pos & 4294967295L) & 4294967295L;
-            this.link[pos] = ((long) this.last & 4294967295L) << 32 | 4294967295L;
+            this.link[this.last] ^= (this.link[this.last] ^ (long) pos & 0xFFFFFFFFL) & 0xFFFFFFFFL;
+            this.link[pos] = ((long) this.last & 0xFFFFFFFFL) << 32 | 0xFFFFFFFFL;
             this.last = pos;
         }
 
@@ -356,8 +356,8 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             this.first = this.last = pos;
             this.link[pos] = -1L;
         } else {
-            this.link[this.last] ^= (this.link[this.last] ^ (long) pos & 4294967295L) & 4294967295L;
-            this.link[pos] = ((long) this.last & 4294967295L) << 32 | 4294967295L;
+            this.link[this.last] ^= (this.link[this.last] ^ (long) pos & 0xFFFFFFFFL) & 0xFFFFFFFFL;
+            this.link[pos] = ((long) this.last & 0xFFFFFFFFL) << 32 | 0xFFFFFFFFL;
             this.last = pos;
         }
 
@@ -440,7 +440,7 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             int pos = this.first;
             this.first = (int) this.link[pos];
             if (0 <= this.first) {
-                this.link[this.first] |= -4294967296L;
+                this.link[this.first] |= 0xFFFFFFFF00000000L;
             }
 
             --this.size;
@@ -468,7 +468,7 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             int pos = this.last;
             this.last = (int) (this.link[pos] >>> 32);
             if (0 <= this.last) {
-                this.link[this.last] |= 4294967295L;
+                this.link[this.last] |= 0xFFFFFFFFL;
             }
 
             --this.size;
@@ -492,17 +492,17 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
         if (this.size != 1 && this.first != i) {
             if (this.last == i) {
                 this.last = (int) (this.link[i] >>> 32);
-                this.link[this.last] |= 4294967295L;
+                this.link[this.last] |= 0xFFFFFFFFL;
             } else {
                 long linki = this.link[i];
                 int prev = (int) (linki >>> 32);
                 int next = (int) linki;
-                this.link[prev] ^= (this.link[prev] ^ linki & 4294967295L) & 4294967295L;
-                this.link[next] ^= (this.link[next] ^ linki & -4294967296L) & -4294967296L;
+                this.link[prev] ^= (this.link[prev] ^ linki & 0xFFFFFFFFL) & 0xFFFFFFFFL;
+                this.link[next] ^= (this.link[next] ^ linki & 0xFFFFFFFF00000000L) & 0xFFFFFFFF00000000L;
             }
 
-            this.link[this.first] ^= (this.link[this.first] ^ ((long) i & 4294967295L) << 32) & -4294967296L;
-            this.link[i] = -4294967296L | (long) this.first & 4294967295L;
+            this.link[this.first] ^= (this.link[this.first] ^ ((long) i & 0xFFFFFFFFL) << 32) & 0xFFFFFFFF00000000L;
+            this.link[i] = 0xFFFFFFFF00000000L | (long) this.first & 0xFFFFFFFFL;
             this.first = i;
         }
     }
@@ -511,17 +511,17 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
         if (this.size != 1 && this.last != i) {
             if (this.first == i) {
                 this.first = (int) this.link[i];
-                this.link[this.first] |= -4294967296L;
+                this.link[this.first] |= 0xFFFFFFFF00000000L;
             } else {
                 long linki = this.link[i];
                 int prev = (int) (linki >>> 32);
                 int next = (int) linki;
-                this.link[prev] ^= (this.link[prev] ^ linki & 4294967295L) & 4294967295L;
-                this.link[next] ^= (this.link[next] ^ linki & -4294967296L) & -4294967296L;
+                this.link[prev] ^= (this.link[prev] ^ linki & 0xFFFFFFFFL) & 0xFFFFFFFFL;
+                this.link[next] ^= (this.link[next] ^ linki & 0xFFFFFFFF00000000L) & 0xFFFFFFFF00000000L;
             }
 
-            this.link[this.last] ^= (this.link[this.last] ^ (long) i & 4294967295L) & 4294967295L;
-            this.link[i] = ((long) this.last & 4294967295L) << 32 | 4294967295L;
+            this.link[this.last] ^= (this.link[this.last] ^ (long) i & 0xFFFFFFFFL) & 0xFFFFFFFFL;
+            this.link[i] = ((long) this.last & 0xFFFFFFFFL) << 32 | 0xFFFFFFFFL;
             this.last = i;
         }
     }
@@ -623,8 +623,8 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             this.first = this.last = pos;
             this.link[pos] = -1L;
         } else {
-            this.link[this.first] ^= (this.link[this.first] ^ ((long) pos & 4294967295L) << 32) & -4294967296L;
-            this.link[pos] = -4294967296L | (long) this.first & 4294967295L;
+            this.link[this.first] ^= (this.link[this.first] ^ ((long) pos & 0xFFFFFFFFL) << 32) & 0xFFFFFFFF00000000L;
+            this.link[pos] = 0xFFFFFFFF00000000L | (long) this.first & 0xFFFFFFFFL;
             this.first = pos;
         }
 
@@ -670,8 +670,8 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             this.first = this.last = pos;
             this.link[pos] = -1L;
         } else {
-            this.link[this.last] ^= (this.link[this.last] ^ (long) pos & 4294967295L) & 4294967295L;
-            this.link[pos] = ((long) this.last & 4294967295L) << 32 | 4294967295L;
+            this.link[this.last] ^= (this.link[this.last] ^ (long) pos & 0xFFFFFFFFL) & 0xFFFFFFFFL;
+            this.link[pos] = ((long) this.last & 0xFFFFFFFFL) << 32 | 0xFFFFFFFFL;
             this.last = pos;
         }
 
@@ -792,21 +792,21 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
         } else if (this.first == i) {
             this.first = (int) this.link[i];
             if (0 <= this.first) {
-                this.link[this.first] |= -4294967296L;
+                this.link[this.first] |= 0xFFFFFFFF00000000L;
             }
 
         } else if (this.last == i) {
             this.last = (int) (this.link[i] >>> 32);
             if (0 <= this.last) {
-                this.link[this.last] |= 4294967295L;
+                this.link[this.last] |= 0xFFFFFFFFL;
             }
 
         } else {
             long linki = this.link[i];
             int prev = (int) (linki >>> 32);
             int next = (int) linki;
-            this.link[prev] ^= (this.link[prev] ^ linki & 4294967295L) & 4294967295L;
-            this.link[next] ^= (this.link[next] ^ linki & -4294967296L) & -4294967296L;
+            this.link[prev] ^= (this.link[prev] ^ linki & 0xFFFFFFFFL) & 0xFFFFFFFFL;
+            this.link[next] ^= (this.link[next] ^ linki & 0xFFFFFFFF00000000L) & 0xFFFFFFFF00000000L;
         }
     }
 
@@ -816,18 +816,18 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             this.link[d] = -1L;
         } else if (this.first == s) {
             this.first = d;
-            this.link[(int) this.link[s]] ^= (this.link[(int) this.link[s]] ^ ((long) d & 4294967295L) << 32) & -4294967296L;
+            this.link[(int) this.link[s]] ^= (this.link[(int) this.link[s]] ^ ((long) d & 0xFFFFFFFFL) << 32) & 0xFFFFFFFF00000000L;
             this.link[d] = this.link[s];
         } else if (this.last == s) {
             this.last = d;
-            this.link[(int) (this.link[s] >>> 32)] ^= (this.link[(int) (this.link[s] >>> 32)] ^ (long) d & 4294967295L) & 4294967295L;
+            this.link[(int) (this.link[s] >>> 32)] ^= (this.link[(int) (this.link[s] >>> 32)] ^ (long) d & 0xFFFFFFFFL) & 0xFFFFFFFFL;
             this.link[d] = this.link[s];
         } else {
             long links = this.link[s];
             int prev = (int) (links >>> 32);
             int next = (int) links;
-            this.link[prev] ^= (this.link[prev] ^ (long) d & 4294967295L) & 4294967295L;
-            this.link[next] ^= (this.link[next] ^ ((long) d & 4294967295L) << 32) & -4294967296L;
+            this.link[prev] ^= (this.link[prev] ^ (long) d & 0xFFFFFFFFL) & 0xFFFFFFFFL;
+            this.link[next] ^= (this.link[next] ^ ((long) d & 0xFFFFFFFFL) << 32) & 0xFFFFFFFF00000000L;
             this.link[d] = links;
         }
     }
@@ -978,8 +978,8 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
 
             newValue[pos] = value[i];
             if (prev != -1) {
-                newLink[newPrev] ^= (newLink[newPrev] ^ (long) pos & 4294967295L) & 4294967295L;
-                newLink[pos] ^= (newLink[pos] ^ ((long) newPrev & 4294967295L) << 32) & -4294967296L;
+                newLink[newPrev] ^= (newLink[newPrev] ^ (long) pos & 0xFFFFFFFFL) & 0xFFFFFFFFL;
+                newLink[pos] ^= (newLink[pos] ^ ((long) newPrev & 0xFFFFFFFFL) << 32) & 0xFFFFFFFF00000000L;
                 newPrev = pos;
             } else {
                 newPrev = this.first = pos;
@@ -993,7 +993,7 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
         this.link = newLink;
         this.last = newPrev;
         if (newPrev != -1) {
-            newLink[newPrev] |= 4294967295L;
+            newLink[newPrev] |= 0xFFFFFFFFL;
         }
 
         this.n = newN;
@@ -1095,18 +1095,18 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
 
             value[pos] = v;
             if (this.first != -1) {
-                link[prev] ^= (link[prev] ^ (long) pos & 4294967295L) & 4294967295L;
-                link[pos] ^= (link[pos] ^ ((long) prev & 4294967295L) << 32) & -4294967296L;
+                link[prev] ^= (link[prev] ^ (long) pos & 0xFFFFFFFFL) & 0xFFFFFFFFL;
+                link[pos] ^= (link[pos] ^ ((long) prev & 0xFFFFFFFFL) << 32) & 0xFFFFFFFF00000000L;
                 prev = pos;
             } else {
                 prev = this.first = pos;
-                link[pos] |= -4294967296L;
+                link[pos] |= 0xFFFFFFFF00000000L;
             }
         }
 
         this.last = prev;
         if (prev != -1) {
-            link[prev] |= 4294967295L;
+            link[prev] |= 0xFFFFFFFFL;
         }
 
     }
@@ -1628,13 +1628,13 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
                 if (this.prev == -1) {
                     first = this.next;
                 } else {
-                    link[this.prev] ^= (link[this.prev] ^ (long) this.next & 4294967295L) & 4294967295L;
+                    link[this.prev] ^= (link[this.prev] ^ (long) this.next & 0xFFFFFFFFL) & 0xFFFFFFFFL;
                 }
 
                 if (this.next == -1) {
                     last = this.prev;
                 } else {
-                    link[this.next] ^= (link[this.next] ^ ((long) this.prev & 4294967295L) << 32) & -4294967296L;
+                    link[this.next] ^= (link[this.next] ^ ((long) this.prev & 0xFFFFFFFFL) << 32) & 0xFFFFFFFF00000000L;
                 }
 
                 int pos = this.curr;
