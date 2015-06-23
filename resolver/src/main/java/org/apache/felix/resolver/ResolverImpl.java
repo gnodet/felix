@@ -250,7 +250,7 @@ public class ResolverImpl implements Resolver
                         continue;
                     }
 
-                    final Map<Resource, Resource> hosts = new LinkedOpenHashMap<Resource, Resource>();
+                    final LinkedOpenHashMap<Resource, Resource> hosts = new LinkedOpenHashMap<Resource, Resource>();
                     for (Resource resource : allResources)
                     {
                         // If we are resolving a fragment, then get its
@@ -380,14 +380,14 @@ public class ResolverImpl implements Resolver
             ResolveSession session,
             Candidates allCandidates,
             Map<Resource, ResolutionError> currentFaultyResources,
-            Map<Resource, Resource> hosts)
+            LinkedOpenHashMap<Resource, Resource> hosts)
     {
         // Calculate package spaces
         Map<Resource, Packages> resourcePkgMap = calculatePackageSpaces(executor, session, allCandidates, hosts.values());
         ResolutionError rethrow = null;
         // Check package consistency
         Map<Resource, Object> resultCache = new LinkedOpenHashMap<Resource, Object>(resourcePkgMap.size());
-        for (Entry<Resource, Resource> entry : hosts.entrySet())
+        for (Entry<Resource, Resource> entry : hosts.fast())
         {
             rethrow = checkPackageSpaceConsistency(
                     session, entry.getValue(),
@@ -512,7 +512,8 @@ public class ResolverImpl implements Resolver
                         // execute code, so we don't need to check for
                         // this case like we do for a normal resolve.
 
-                        Map<Resource, Resource> hosts = Collections.singletonMap(host, allCandidates.getWrappedHost(host));
+                        LinkedOpenHashMap<Resource, Resource> hosts = new LinkedOpenHashMap<Resource, Resource>();
+                        hosts.put(host, allCandidates.getWrappedHost(host));
                         resourcePkgMap = calculatePackageSpaces(
                                 new DumbExecutor(),
                                 session,

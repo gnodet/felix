@@ -57,7 +57,7 @@ class Candidates
     // when a revision being resolved has fragments to attach to it.
     private final Map<Resource, WrappedResource> m_allWrappedHosts;
     // Map used when populating candidates to hold intermediate and final results.
-    private final Map<Resource, Object> m_populateResultCache;
+    private final LinkedOpenHashMap<Resource, Object> m_populateResultCache;
 
     // Flag to signal if fragments are present in the candidate map.
     private boolean m_fragmentsPresent = false;
@@ -75,7 +75,8 @@ class Candidates
         Set<Resource> mandatoryResources,
         OpenHashMapSet<Capability, Requirement> dependentMap,
         OpenHashMapList<Requirement, Capability> candidateMap,
-        Map<Resource, WrappedResource> wrappedHosts, Map<Resource, Object> populateResultCache,
+        Map<Resource, WrappedResource> wrappedHosts,
+        LinkedOpenHashMap<Resource, Object> populateResultCache,
         boolean fragmentsPresent,
         Map<Resource, Boolean> onDemandResources,
         Map<Capability, Requirement> substitutableMap,
@@ -367,7 +368,7 @@ class Candidates
 
     private void populateSubstitutables()
     {
-        for (Map.Entry<Resource, Object> populated : m_populateResultCache.entrySet())
+        for (Map.Entry<Resource, Object> populated : m_populateResultCache.fast())
         {
             if (populated.getValue() instanceof Boolean)
             {
@@ -437,7 +438,7 @@ class Candidates
 
     ResolutionError checkSubstitutes(List<Candidates> importPermutations)
     {
-        Map<Capability, Integer> substituteStatuses = new LinkedOpenHashMap<Capability, Integer>(m_subtitutableMap.size());
+        LinkedOpenHashMap<Capability, Integer> substituteStatuses = new LinkedOpenHashMap<Capability, Integer>(m_subtitutableMap.size());
         for (Capability substitutable : m_subtitutableMap.keySet())
         {
             // initialize with unprocessed
@@ -450,7 +451,7 @@ class Candidates
         }
 
         // Remove any substituted exports from candidates
-        for (Map.Entry<Capability, Integer> substituteStatus : substituteStatuses.entrySet())
+        for (Map.Entry<Capability, Integer> substituteStatus : substituteStatuses.fast())
         {
             if (substituteStatus.getValue() == SUBSTITUTED)
             {
@@ -1075,7 +1076,7 @@ class Candidates
     {
         Map<Capability, Map<String, Map<Version, List<Requirement>>>> hostFragments =
             new HashMap<Capability, Map<String, Map<Version, List<Requirement>>>>();
-        for (Entry<Requirement, CopyOnWriteList<Capability>> entry : m_candidateMap.entrySet())
+        for (Entry<Requirement, CopyOnWriteList<Capability>> entry : m_candidateMap.fast())
         {
             Requirement req = entry.getKey();
             List<Capability> caps = entry.getValue();

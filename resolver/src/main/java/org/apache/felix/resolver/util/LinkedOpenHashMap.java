@@ -46,7 +46,7 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
     protected V defRetValue;
 
     protected transient volatile Iterable<Map.Entry<K, V>> fast;
-    protected transient volatile SortedSet<Map.Entry<K, V>> entries;
+    protected transient volatile LinkedOpenHashMap.MapEntrySet entries;
     protected transient volatile SortedSet<K> keys;
     protected transient volatile Collection<V> values;
 
@@ -118,13 +118,31 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             return false;
         } else {
             Map m = (Map) o;
-            return m.size() == this.size() && this.entrySet().containsAll(m.entrySet());
+            int n = m.size();
+            if (this.size() != n) {
+                return false;
+            }
+            Iterator<? extends Entry<?, ?>> i = this.fast().iterator();
+            while (n-- > 0) {
+                Entry e = i.next();
+                Object k = e.getKey();
+                Object v = e.getValue();
+                Object v2 = m.get(k);
+                if (v == null) {
+                    if (v2 != null) {
+                        return false;
+                    }
+                } else if (!v.equals(v2)) {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 
     public String toString() {
         StringBuilder s = new StringBuilder();
-        Iterator<Map.Entry<K, V>> i = this.entrySet().iterator();
+        Iterator<Map.Entry<K, V>> i = this.fast().iterator();
         int n = this.size();
         boolean first = true;
         s.append("{");
@@ -211,10 +229,18 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
         }
 
         int n = m.size();
-        Iterator<? extends Map.Entry<? extends K, ? extends V>> i = m.entrySet().iterator();
-        while(n-- != 0) {
-            Map.Entry<? extends K, ? extends V> e = i.next();
-            this.put(e.getKey(), e.getValue());
+        if (m instanceof LinkedOpenHashMap) {
+            Iterator<? extends Map.Entry<? extends K, ? extends V>> i = ((LinkedOpenHashMap) m).fast().iterator();
+            while (n-- != 0) {
+                Map.Entry<? extends K, ? extends V> e = i.next();
+                this.put(e.getKey(), e.getValue());
+            }
+        } else {
+            Iterator<? extends Map.Entry<? extends K, ? extends V>> i = m.entrySet().iterator();
+            while (n-- != 0) {
+                Map.Entry<? extends K, ? extends V> e = i.next();
+                this.put(e.getKey(), e.getValue());
+            }
         }
     }
 
@@ -878,7 +904,7 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
         return this.fast;
     }
 
-    public SortedSet<Map.Entry<K, V>> entrySet() {
+    public SortedSet<Map.Entry<K ,V>> entrySet() {
         if (this.entries == null) {
             this.entries = new LinkedOpenHashMap.MapEntrySet();
         }
