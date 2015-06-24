@@ -29,7 +29,7 @@ import java.util.*;
  * Based on fastutil Object2ObjectLinkedOpenHashMap
  */
 @SuppressWarnings("NullableProblems")
-public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, SortedMap<K, V> {
+public class LinkedOpenHashMap<K, V> implements Serializable, Cloneable, SortedMap<K, V> {
 
     private static final long serialVersionUID = 0L;
     protected transient Object[] key;
@@ -904,7 +904,7 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
         return this.fast;
     }
 
-    public SortedSet<Map.Entry<K ,V>> entrySet() {
+    public SortedSet<Map.Entry<K, V>> entrySet() {
         if (this.entries == null) {
             this.entries = new LinkedOpenHashMap.MapEntrySet();
         }
@@ -990,7 +990,7 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
         this.first = -1;
 
         int t;
-        for (int j = this.size; j-- != 0; prev = t) {
+        for (int j = this.size; j-- != 0;) {
             int pos;
             if (key[i] == null) {
                 pos = newN;
@@ -1014,6 +1014,7 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
 
             t = i;
             i = (int) link[i];
+            prev = t;
         }
 
         this.link = newLink;
@@ -1034,7 +1035,7 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
         LinkedOpenHashMap<K, V> c;
         try {
             c = (LinkedOpenHashMap<K, V>) super.clone();
-        } catch (CloneNotSupportedException var3) {
+        } catch (CloneNotSupportedException cantHappen) {
             throw new InternalError();
         }
 
@@ -1042,10 +1043,10 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
         c.keys = null;
         c.values = null;
         c.entries = null;
-        c.containsNullKey = this.containsNullKey;
-        c.key = this.key.clone();
-        c.value = this.value.clone();
-        c.link = this.link.clone();
+        c.containsNullKey = containsNullKey;
+        c.key = key.clone();
+        c.value = value.clone();
+        c.link = link.clone();
         return c;
     }
 
@@ -1488,18 +1489,13 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
     }
 
     public static abstract class AbstractObjectSet<K> extends AbstractObjectCollection<K> implements Cloneable {
-        protected AbstractObjectSet() {
-        }
-
-        public abstract Iterator<K> iterator();
-
         public boolean equals(Object o) {
-            if(o == this) {
+            if (o == this) {
                 return true;
-            } else if(!(o instanceof Set)) {
+            } else if (!(o instanceof Set)) {
                 return false;
             } else {
-                Set s = (Set)o;
+                Set s = (Set) o;
                 return s.size() == this.size() && this.containsAll(s);
             }
         }
@@ -1509,38 +1505,38 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             int n = this.size();
 
             Object k;
-            for(Iterator i = this.iterator(); n-- != 0; h += k == null?0:k.hashCode()) {
+            for (Iterator i = this.iterator(); n-- != 0; h += k == null ? 0 : k.hashCode()) {
                 k = i.next();
             }
 
             return h;
         }
-
-        public boolean remove(Object k) {
-            throw new UnsupportedOperationException();
-        }
     }
 
     private class MapIterator {
-        int prev;
-        int next;
-        int curr;
-        int index;
+        /**
+         * The entry that will be returned by the next call to {@link java.util.ListIterator#previous()} (or <code>null</code> if no previous entry exists).
+         */
+        int prev = -1;
+        /**
+         * The entry that will be returned by the next call to {@link java.util.ListIterator#next()} (or <code>null</code> if no next entry exists).
+         */
+        int next = -1;
+        /**
+         * The last entry that was returned (or -1 if we did not iterate or used {@link java.util.Iterator#remove()}).
+         */
+        int curr = -1;
+        /**
+         * The current index (in the sense of a {@link java.util.ListIterator}). Note that this value is not meaningful when this iterator has been created using the nonempty constructor.
+         */
+        int index = -1;
 
         private MapIterator() {
-            this.prev = -1;
-            this.next = -1;
-            this.curr = -1;
-            this.index = -1;
             this.next = first;
             this.index = 0;
         }
 
         private MapIterator(Object from) {
-            this.prev = -1;
-            this.next = -1;
-            this.curr = -1;
-            this.index = -1;
             if (from == null) {
                 if (containsNullKey) {
                     this.next = (int) link[n];
@@ -1549,27 +1545,19 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
                     throw new NoSuchElementException("The key " + from + " does not belong to this map.");
                 }
             } else {
-                if (key[last] == null) {
-                    if (from == null) {
-                        this.prev = last;
-                        this.index = size;
-                        return;
-                    }
-                } else if (key[last].equals(from)) {
+                if (key[last] == null ? from == null : (key[last].equals(from))) {
                     this.prev = last;
                     this.index = size;
-                    return;
-                }
-
-                for (int pos = mix(from.hashCode()) & mask; key[pos] != null; pos = pos + 1 & mask) {
-                    if (key[pos].equals(from)) {
-                        this.next = (int) link[pos];
-                        this.prev = pos;
-                        return;
+                } else {
+                    for (int pos = mix(from.hashCode()) & mask; key[pos] != null; pos = pos + 1 & mask) {
+                        if (key[pos].equals(from)) {
+                            this.next = (int) link[pos];
+                            this.prev = pos;
+                            return;
+                        }
                     }
+                    throw new NoSuchElementException("The key " + from + " does not belong to this map.");
                 }
-
-                throw new NoSuchElementException("The key " + from + " does not belong to this map.");
             }
         }
 
@@ -1582,156 +1570,125 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
         }
 
         private void ensureIndexKnown() {
-            if (this.index < 0) {
-                if (this.prev == -1) {
-                    this.index = 0;
-                } else if (this.next == -1) {
-                    this.index = size;
+            if (index < 0) {
+                if (prev == -1) {
+                    index = 0;
+                } else if (next == -1) {
+                    index = size;
                 } else {
                     int pos = first;
-
-                    for (this.index = 1; pos != this.prev; ++this.index) {
+                    for (index = 1; pos != prev; ++index) {
                         pos = (int) link[pos];
                     }
-
                 }
             }
         }
 
         public int nextIndex() {
-            this.ensureIndexKnown();
-            return this.index;
+            ensureIndexKnown();
+            return index;
         }
 
         public int previousIndex() {
-            this.ensureIndexKnown();
-            return this.index - 1;
+            ensureIndexKnown();
+            return index - 1;
         }
 
         public int nextEntry() {
-            if (!this.hasNext()) {
+            if (!hasNext()) {
                 throw new NoSuchElementException();
             } else {
-                this.curr = this.next;
-                this.next = (int) link[this.curr];
-                this.prev = this.curr;
-                if (this.index >= 0) {
-                    ++this.index;
+                curr = next;
+                next = (int) link[curr];
+                prev = curr;
+                if (index >= 0) {
+                    ++index;
                 }
-
-                return this.curr;
+                return curr;
             }
         }
 
         public int previousEntry() {
-            if (!this.hasPrevious()) {
+            if (!hasPrevious()) {
                 throw new NoSuchElementException();
             } else {
-                this.curr = this.prev;
-                this.prev = (int) (link[this.curr] >>> 32);
-                this.next = this.curr;
-                if (this.index >= 0) {
-                    --this.index;
+                curr = prev;
+                prev = (int) (link[curr] >>> 32);
+                next = curr;
+                if (index >= 0) {
+                    --index;
                 }
-
-                return this.curr;
+                return curr;
             }
         }
 
         public void remove() {
             this.ensureIndexKnown();
-            if (this.curr == -1) {
-                throw new IllegalStateException();
+            if (curr == -1) throw new IllegalStateException();
+
+            if (curr == prev) {
+                    /* If the last operation was a next(), we are removing an entry that preceeds
+				       the current index, and thus we must decrement it. */
+                index--;
+                prev = (int) (link[curr] >>> 32);
             } else {
-                if (this.curr == this.prev) {
-                    --this.index;
-                    this.prev = (int) (link[this.curr] >>> 32);
-                } else {
-                    this.next = (int) link[this.curr];
-                }
+                next = (int) link[curr];
+            }
 
-                --size;
-                if (this.prev == -1) {
-                    first = this.next;
-                } else {
-                    link[this.prev] ^= (link[this.prev] ^ (long) this.next & 0xFFFFFFFFL) & 0xFFFFFFFFL;
-                }
+            size--;
+    			/* Now we manually fix the pointers. Because of our knowledge of next
+	    		   and prev, this is going to be faster than calling fixPointers(). */
+            if (prev == -1) {
+                first = next;
+            } else {
+                link[prev] ^= (link[prev] ^ (long) next & 0xFFFFFFFFL) & 0xFFFFFFFFL;
+            }
+            if (next == -1) {
+                last = prev;
+            } else {
+                link[next] ^= (link[next] ^ ((long) prev & 0xFFFFFFFFL) << 32) & 0xFFFFFFFF00000000L;
+            }
 
-                if (this.next == -1) {
-                    last = this.prev;
-                } else {
-                    link[this.next] ^= (link[this.next] ^ ((long) this.prev & 0xFFFFFFFFL) << 32) & 0xFFFFFFFF00000000L;
-                }
+            int last, slot, pos = curr;
+            curr = -1;
 
-                int pos = this.curr;
-                this.curr = -1;
-                if (pos == n) {
-                    containsNullKey = false;
-                    value[n] = null;
-                } else {
-                    Object[] key = LinkedOpenHashMap.this.key;
-
-                    label63:
-                    while (true) {
-                        int last = pos;
-                        pos = pos + 1 & mask;
-
-                        Object curr;
-                        while ((curr = key[pos]) != null) {
-                            label58:
-                            {
-                                int slot = mix(curr.hashCode()) & mask;
-                                if (last <= pos) {
-                                    if (last >= slot || slot > pos) {
-                                        break label58;
-                                    }
-                                } else if (last >= slot && slot > pos) {
-                                    break label58;
-                                }
-
-                                pos = pos + 1 & mask;
-                                continue;
-                            }
-
-                            key[last] = curr;
-                            value[last] = value[pos];
-                            if (this.next == pos) {
-                                this.next = last;
-                            }
-
-                            if (this.prev == pos) {
-                                this.prev = last;
-                            }
-
-                            fixPointers(pos, last);
-                            continue label63;
+            if (pos == n) {
+                containsNullKey = false;
+                value[n] = null;
+            } else {
+                Object curr;
+                Object[] key = LinkedOpenHashMap.this.key;
+                // We have to horribly duplicate the shiftKeys() code because we need to update next/prev.
+                for (; ; ) {
+                    pos = ((last = pos) + 1) & mask;
+                    for (; ; ) {
+                        if ((curr = key[pos]) == null) {
+                            key[last] = null;
+                            value[last] = null;
+                            return;
                         }
-
-                        key[last] = null;
-                        value[last] = null;
-                        return;
+                        slot = mix(curr.hashCode()) & mask;
+                        if (last <= pos ? last >= slot || slot > pos : last >= slot && slot > pos) break;
+                        pos = (pos + 1) & mask;
                     }
+                    key[last] = curr;
+                    value[last] = value[pos];
+                    if (next == pos) next = last;
+                    if (prev == pos) prev = last;
+                    fixPointers(pos, last);
                 }
             }
         }
 
-        public int skip(int n) {
+        public int skip(final int n) {
             int i = n;
-
-            while (i-- != 0 && this.hasNext()) {
-                this.nextEntry();
-            }
-
+            while (i-- != 0 && hasNext()) nextEntry();
             return n - i - 1;
         }
 
-        public int back(int n) {
+        public int back(final int n) {
             int i = n;
-
-            while (i-- != 0 && this.hasPrevious()) {
-                this.previousEntry();
-            }
-
+            while (i-- != 0 && hasPrevious()) previousEntry();
             return n - i - 1;
         }
     }
@@ -1789,8 +1746,8 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
         }
 
         public int hashCode() {
-            return (key[this.index] == null ? 0 : 
-                    key[this.index].hashCode()) ^ (value[this.index] == null ? 0 : 
+            return (key[this.index] == null ? 0 :
+                    key[this.index].hashCode()) ^ (value[this.index] == null ? 0 :
                     value[this.index].hashCode());
         }
 
@@ -1798,7 +1755,6 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             return key[this.index] + "=>" + value[this.index];
         }
     }
-
 
 
     public static abstract class AbstractObjectCollection<K> extends AbstractCollection<K> {
@@ -1813,7 +1769,7 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
 
         @SuppressWarnings("unchecked")
         public <T> T[] toArray(T[] a) {
-            if(a.length < this.size()) {
+            if (a.length < this.size()) {
                 a = (T[]) Array.newInstance(a.getClass().getComponentType(), this.size());
             }
             unwrap(this.iterator(), a);
@@ -1825,8 +1781,8 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             Iterator<? extends K> i = c.iterator();
             int n = c.size();
 
-            while(n-- != 0) {
-                if(this.add(i.next())) {
+            while (n-- != 0) {
+                if (this.add(i.next())) {
                     retVal = true;
                 }
             }
@@ -1843,10 +1799,10 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             Iterator i = c.iterator();
 
             do {
-                if(n-- == 0) {
+                if (n-- == 0) {
                     return true;
                 }
-            } while(this.contains(i.next()));
+            } while (this.contains(i.next()));
 
             return false;
         }
@@ -1856,8 +1812,8 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             int n = this.size();
             Iterator i = this.iterator();
 
-            while(n-- != 0) {
-                if(!c.contains(i.next())) {
+            while (n-- != 0) {
+                if (!c.contains(i.next())) {
                     i.remove();
                     retVal = true;
                 }
@@ -1871,8 +1827,8 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             int n = c.size();
             Iterator i = c.iterator();
 
-            while(n-- != 0) {
-                if(this.remove(i.next())) {
+            while (n-- != 0) {
+                if (this.remove(i.next())) {
                     retVal = true;
                 }
             }
@@ -1891,15 +1847,15 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
             boolean first = true;
             s.append("{");
 
-            while(n-- != 0) {
-                if(first) {
+            while (n-- != 0) {
+                if (first) {
                     first = false;
                 } else {
                     s.append(", ");
                 }
 
                 Object k = i.next();
-                if(this == k) {
+                if (this == k) {
                     s.append("(this collection)");
                 } else {
                     s.append(String.valueOf(k));
@@ -1912,20 +1868,20 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
     }
 
     private static int arraySize(int expected, float f) {
-        long s = Math.max(2L, nextPowerOfTwo((long)Math.ceil((double)((float)expected / f))));
-        if(s > 1073741824L) {
+        long s = Math.max(2L, nextPowerOfTwo((long) Math.ceil((double) ((float) expected / f))));
+        if (s > 0x40000000L) {
             throw new IllegalArgumentException("Too large (" + expected + " expected elements with load factor " + f + ")");
         } else {
-            return (int)s;
+            return (int) s;
         }
     }
 
     private static int maxFill(int n, float f) {
-        return Math.min((int)Math.ceil((double)((float)n * f)), n - 1);
+        return Math.min((int) Math.ceil((double) ((float) n * f)), n - 1);
     }
 
     private static int nextPowerOfTwo(int x) {
-        if(x == 0) {
+        if (x == 0) {
             return 1;
         } else {
             --x;
@@ -1938,7 +1894,7 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
     }
 
     private static long nextPowerOfTwo(long x) {
-        if(x == 0L) {
+        if (x == 0L) {
             return 1L;
         } else {
             --x;
@@ -1957,11 +1913,11 @@ public class LinkedOpenHashMap<K, V>  implements Serializable, Cloneable, Sorted
     }
 
     private static <K> int unwrap(Iterator<? extends K> i, K[] array, int offset, int max) {
-        if(max < 0) {
+        if (max < 0) {
             throw new IllegalArgumentException("The maximum number of elements (" + max + ") is negative");
-        } else if(offset >= 0 && offset + max <= array.length) {
+        } else if (offset >= 0 && offset + max <= array.length) {
             int j;
-            for(j = max; j-- != 0 && i.hasNext(); array[offset++] = i.next()) {
+            for (j = max; j-- != 0 && i.hasNext(); array[offset++] = i.next()) {
                 ;
             }
 
