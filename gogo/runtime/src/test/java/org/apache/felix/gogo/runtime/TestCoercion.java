@@ -18,13 +18,11 @@
  */
 package org.apache.felix.gogo.runtime;
 
-import junit.framework.TestCase;
-
 import org.apache.felix.service.command.CommandSession;
 import org.apache.felix.service.command.Descriptor;
 import org.apache.felix.service.command.Parameter;
 
-public class TestCoercion extends TestCase
+public class TestCoercion extends AbstractParserTest
 {
     public boolean fBool(boolean t)
     {

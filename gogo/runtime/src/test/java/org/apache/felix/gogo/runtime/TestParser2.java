@@ -20,13 +20,11 @@ package org.apache.felix.gogo.runtime;
 
 import java.io.EOFException;
 
-import junit.framework.TestCase;
-
 /*
  * Test features of the new parser/tokenizer, many of which are not supported
  * by the original parser.
  */
-public class TestParser2 extends TestCase
+public class TestParser2 extends AbstractParserTest
 {
     public void testComment() throws Exception
     {

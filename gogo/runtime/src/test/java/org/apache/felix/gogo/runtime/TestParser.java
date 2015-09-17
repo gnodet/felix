@@ -18,13 +18,6 @@
  */
 package org.apache.felix.gogo.runtime;
 
-import junit.framework.TestCase;
-
-import org.apache.felix.gogo.runtime.Parser;
-import org.apache.felix.gogo.runtime.Token;
-import org.apache.felix.service.command.CommandSession;
-import org.apache.felix.service.command.Function;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -34,7 +27,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.regex.Pattern;
 
-public class TestParser extends TestCase
+import org.apache.felix.service.command.CommandSession;
+import org.apache.felix.service.command.Function;
+
+public class TestParser extends AbstractParserTest
 {
     int beentheredonethat = 0;
 

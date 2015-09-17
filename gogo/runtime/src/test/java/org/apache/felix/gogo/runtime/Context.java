@@ -18,23 +18,16 @@
  */
 package org.apache.felix.gogo.runtime;
 
-import org.apache.felix.gogo.runtime.threadio.ThreadIOImpl;
 import org.apache.felix.service.command.CommandSession;
+import org.apache.felix.service.threadio.ThreadIO;
 
 public class Context extends CommandProcessorImpl
 {
     public static final String EMPTY = "";
     
-    private static final ThreadIOImpl threadio;
     private final CommandSession session;
 
-    static
-    {
-        threadio = new ThreadIOImpl();
-        threadio.start();
-    }
-
-    public Context()
+    public Context(ThreadIO threadio)
     {
         super(threadio);
         addCommand("osgi", this, "addCommand");

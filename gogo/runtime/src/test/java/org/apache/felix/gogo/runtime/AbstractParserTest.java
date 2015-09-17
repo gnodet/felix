@@ -18,40 +18,30 @@
  */
 package org.apache.felix.gogo.runtime;
 
-/*
- * Test features of the new parser/tokenizer, many of which are not supported
- * by the original parser.
- */
-public class TestParser3 extends AbstractParserTest
-{
-    public void testArithmetic() throws Exception
-    {
-        Context c = new Context();
-        c.addCommand("echo", this);
+import junit.framework.TestCase;
+import org.apache.felix.gogo.runtime.threadio.ThreadIOImpl;
 
-        assertEquals("10d", c.execute("echo %(2*(3+2))d"));
-        assertEquals(3l, c.execute("%(1+2)"));
+public abstract class AbstractParserTest extends TestCase {
 
-        c.set("a", 2l);
-        assertEquals(3l, c.execute("%(a+=1)"));
-        assertEquals(3l, c.get("a"));
+    private ThreadIOImpl threadIO;
+
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        threadIO = new ThreadIOImpl();
+        threadIO.start();
     }
 
-    public CharSequence echo(Object args[])
-    {
-        if (args == null)
-        {
-            return "null args!";
-        }
+    @Override
+    protected void tearDown() throws Exception {
+        threadIO.stop();
+        super.tearDown();
+    }
 
-        StringBuilder sb = new StringBuilder();
-        for (Object arg : args)
-        {
-            if (sb.length() > 0)
-                sb.append(' ');
-            sb.append(String.valueOf(arg));
+    public class Context extends org.apache.felix.gogo.runtime.Context {
+        public Context() {
+            super(AbstractParserTest.this.threadIO);
         }
-        return sb.toString();
     }
 
 }
