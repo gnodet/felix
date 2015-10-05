@@ -83,9 +83,9 @@ public class Builtin
 
     // FIXME: the "new" command should be provided by runtime,
     // so it can leverage same argument coercion mechanism, used to invoke methods.
-    public Object _new(Object name, Object[] argv) throws Exception
+    public Object _new(CommandSession session, Object name, Object[] argv) throws Exception
     {
-        Class<?> clazz = null;
+        Class<?> clazz;
 
         if (name instanceof Class<?>)
         {
@@ -106,16 +106,16 @@ public class Builtin
 
             boolean match = true;
 
-            for (int i = 0; i < argv.length; ++i)
+            Object[] transformed = argv.clone();
+            for (int i = 0; i < transformed.length; ++i)
             {
-                if (!types[i].isAssignableFrom(argv[i].getClass()))
+                try {
+                    transformed[i] = session.convert(types[i], transformed[i]);
+                }
+                catch (IllegalArgumentException e)
                 {
-                    if (!types[i].isAssignableFrom(String.class))
-                    {
-                        match = false;
-                        break;
-                    }
-                    argv[i] = argv[i].toString();
+                    match = false;
+                    break;
                 }
             }
 
@@ -126,7 +126,7 @@ public class Builtin
 
             try
             {
-                return c.newInstance(argv);
+                return c.newInstance(transformed);
             }
             catch (InvocationTargetException ite)
             {
@@ -225,7 +225,8 @@ public class Builtin
     {
         final String[] usage = {
                 "tac - capture stdin as String or List and optionally write to file.",
-                "Usage: tac [-al] [FILE]", "  -a --append              append to FILE",
+                "Usage: tac [-al] [FILE]",
+                "  -a --append              append to FILE",
                 "  -l --list                return List<String>",
                 "  -? --help                show help" };
 
@@ -243,7 +244,7 @@ public class Builtin
         if (args.size() == 1)
         {
             String path = args.get(0);
-            File file = new File(Shell.cwd(session).resolve(path));
+            File file = new File(Posix._pwd(session), path);
             fw = new BufferedWriter(new FileWriter(file, opt.isSet("append")));
         }
 

@@ -28,6 +28,10 @@
     <name>Apache Felix Gogo Shell</name>
     <artifactId>org.apache.felix.gogo.shell</artifactId>
     <version>0.11.0-SNAPSHOT</version>
+    <properties>
+        <!-- Skip because of NPE -->
+        <animal.sniffer.skip>true</animal.sniffer.skip>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>org.osgi</groupId>
@@ -44,7 +48,13 @@
         <dependency>
             <groupId>org.apache.felix</groupId>
             <artifactId>org.apache.felix.gogo.runtime</artifactId>
-            <version>0.10.0</version>
+            <version>0.16.3-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>jline</groupId>
+            <artifactId>jline</artifactId>
+            <version>3.0.0-SNAPSHOT</version>
+            <optional>true</optional>
         </dependency>
     </dependencies>
     <build>
@@ -62,10 +72,10 @@
                             *
                         </Import-Package>
                         <Private-Package>
-			    org.apache.felix.gogo.shell,
-			    org.apache.felix.gogo.options
-			</Private-Package>
-                        <Bundle-SymbolicName>${pom.artifactId}</Bundle-SymbolicName>
+			                org.apache.felix.gogo.shell,
+			                org.apache.felix.gogo.options
+			            </Private-Package>
+                        <Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
                         <Bundle-Vendor>The Apache Software Foundation</Bundle-Vendor>
                         <Bundle-Activator>org.apache.felix.gogo.shell.Activator</Bundle-Activator>
                         <Include-Resource>{maven-resources},META-INF/LICENSE=LICENSE,META-INF/NOTICE=NOTICE,META-INF/DEPENDENCIES=DEPENDENCIES</Include-Resource>
@@ -75,17 +85,11 @@
                 </configuration>
             </plugin>
             <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>rat-maven-plugin</artifactId>
+                <groupId>org.apache.rat</groupId>
+                <artifactId>apache-rat-plugin</artifactId>
                 <configuration>
-                    <excludeSubProjects>false</excludeSubProjects>
-                    <useEclipseDefaultExcludes>true</useEclipseDefaultExcludes>
-                    <useMavenDefaultExcludes>true</useMavenDefaultExcludes>
                     <excludes>
-                        <param>doc/*</param>
-                        <param>maven-eclipse.xml</param>
-                        <param>.checkstyle</param>
-                        <param>.externalToolBuilders/*</param>
+                        <param>src/main/resources/motd</param>
                     </excludes>
                 </configuration>
             </plugin>

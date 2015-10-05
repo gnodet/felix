@@ -33,43 +33,6 @@ import java.util.regex.Pattern;
  * Yet another GNU long options parser. This one is configured by parsing its Usage string.
  */
 public class Options implements Option {
-    public static void main(String[] args) {
-        final String[] usage = {
-            "test - test Options usage",
-            "  text before Usage: is displayed when usage() is called and no error has occurred.",
-            "  so can be used as a simple help message.",
-            "",
-            "Usage: testOptions [OPTION]... PATTERN [FILES]...",
-            "  Output control: arbitary non-option text can be included.",
-            "  -? --help                show help",
-            "  -c --count=COUNT           show COUNT lines",
-            "  -h --no-filename         suppress the prefixing filename on output",
-            "  -q --quiet, --silent     suppress all normal output",
-            "     --binary-files=TYPE   assume that binary files are TYPE",
-            "                           TYPE is 'binary', 'text', or 'without-match'",
-            "  -I                       equivalent to --binary-files=without-match",
-            "  -d --directories=ACTION  how to handle directories (default=skip)",
-            "                           ACTION is 'read', 'recurse', or 'skip'",
-            "  -D --devices=ACTION      how to handle devices, FIFOs and sockets",
-            "                           ACTION is 'read' or 'skip'",
-            "  -R, -r --recursive       equivalent to --directories=recurse" };
-
-        Option opt = Options.compile(usage).parse(args);
-
-        if (opt.isSet("help")) {
-            opt.usage(); // includes text before Usage:
-            return;
-        }
-
-        if (opt.args().size() == 0)
-            throw opt.usageError("PATTERN not specified");
-
-        System.out.println(opt);
-        if (opt.isSet("count"))
-            System.out.println("count = " + opt.getNumber("count"));
-        System.out.println("--directories specified: " + opt.isSet("directories"));
-        System.out.println("directories=" + opt.get("directories"));
-    }
 
     public static final String NL = System.getProperty("line.separator", "\n");
 

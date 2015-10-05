@@ -28,6 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.felix.gogo.shell.Shell.Context;
 import org.apache.felix.service.command.CommandProcessor;
 import org.apache.felix.service.command.CommandSession;
 import org.apache.felix.service.command.Converter;
@@ -93,7 +94,7 @@ public class Activator implements BundleActivator
         };
     }
 
-    private void startShell(BundleContext context, CommandProcessor processor)
+    private void startShell(final BundleContext context, CommandProcessor processor)
     {
         Dictionary<String, Object> dict = new Hashtable<String, Object>();
         dict.put(CommandProcessor.COMMAND_SCOPE, "gogo");
@@ -115,7 +116,7 @@ public class Activator implements BundleActivator
         dict.put(CommandProcessor.COMMAND_FUNCTION, Telnet.functions);
         regs.add(context.registerService(Telnet.class.getName(), new Telnet(processor), dict));
 
-        Shell shell = new Shell(context, processor);
+        Shell shell = new Shell(new ShellContext(), processor);
         dict.put(CommandProcessor.COMMAND_FUNCTION, Shell.functions);
         regs.add(context.registerService(Shell.class.getName(), shell, dict));
 
@@ -193,6 +194,15 @@ public class Activator implements BundleActivator
             {
                 session.close();
             }
+        }
+    }
+
+    private class ShellContext implements Context {
+        public String getProperty(String name) {
+            return context.getProperty(name);
+        }
+        public void stop() throws Exception {
+            context.getBundle(0).stop();
         }
     }
 }
