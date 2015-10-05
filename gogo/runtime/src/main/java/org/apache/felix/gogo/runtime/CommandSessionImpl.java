@@ -33,7 +33,10 @@ import java.util.Enumeration;
 import java.util.Formatter;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
+import org.apache.felix.service.command.CommandProcessor;
 import org.apache.felix.service.command.CommandSession;
 import org.apache.felix.service.command.Converter;
 import org.apache.felix.service.command.Function;
@@ -44,6 +47,7 @@ public class CommandSessionImpl implements CommandSession, Converter
     public static final String SESSION_CLOSED = "session is closed";
     public static final String VARIABLES = ".variables";
     public static final String COMMANDS = ".commands";
+    public static final String CONSTANTS = ".constants";
     private static final String COLUMN = "%-20s %s\n";
 
     protected InputStream in;
@@ -51,7 +55,7 @@ public class CommandSessionImpl implements CommandSession, Converter
     PrintStream err;
 
     private final CommandProcessorImpl processor;
-    protected final Map<String, Object> variables = new HashMap<String, Object>();
+    protected final ConcurrentMap<String, Object> variables = new ConcurrentHashMap<String, Object>();
     private volatile boolean closed;
 
     protected CommandSessionImpl(CommandProcessorImpl shell, InputStream in, PrintStream out, PrintStream err)
@@ -65,6 +69,16 @@ public class CommandSessionImpl implements CommandSession, Converter
     ThreadIO threadIO()
     {
         return processor.threadIO;
+    }
+
+    public CommandProcessor processor()
+    {
+        return processor;
+    }
+
+    public ConcurrentMap<String, Object> getVariables()
+    {
+        return variables;
     }
 
     public void close()
@@ -120,6 +134,11 @@ public class CommandSessionImpl implements CommandSession, Converter
             return processor.getCommands();
         }
 
+        if (CONSTANTS.equals(name))
+        {
+            return Collections.unmodifiableSet(processor.constants.keySet());
+        }
+
         Object val = processor.constants.get(name);
         if (val != null)
         {
@@ -153,11 +172,15 @@ public class CommandSessionImpl implements CommandSession, Converter
         return processor.getCommand(name, variables.get("SCOPE"));
     }
 
-    public void put(String name, Object value)
+    public Object put(String name, Object value)
     {
-        synchronized (variables)
+        if (value != null)
         {
-            variables.put(name, value);
+            return variables.put(name, value);
+        }
+        else
+        {
+            return variables.remove(name);
         }
     }
 
@@ -380,7 +403,12 @@ public class CommandSessionImpl implements CommandSession, Converter
 
     public Object convert(Class<?> desiredType, Object in)
     {
-        return processor.convert(desiredType, in);
+        return processor.convert(this, desiredType, in);
+    }
+
+    public Object doConvert(Class<?> desiredType, Object in)
+    {
+        return processor.doConvert(desiredType, in);
     }
 
     public CharSequence format(Object result, int inspect)

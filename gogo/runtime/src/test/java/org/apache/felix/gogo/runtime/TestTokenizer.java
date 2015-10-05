@@ -18,6 +18,9 @@
  */
 package org.apache.felix.gogo.runtime;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -30,13 +33,13 @@ import java.util.Map;
 
 import junit.framework.TestCase;
 
-import org.apache.felix.gogo.runtime.Tokenizer.Type;
 import org.apache.felix.gogo.runtime.threadio.ThreadIOImpl;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 
-public class TestTokenizer extends TestCase
+public class TestTokenizer
 {
     private final Map<String, Object> vars = new HashMap<String, Object>();
     private final Evaluate evaluate;
@@ -58,6 +61,10 @@ public class TestTokenizer extends TestCase
             public Object put(String key, Object value)
             {
                 return vars.put(key, value);
+            }
+
+            public Object expr(Token t) {
+                throw new UnsupportedOperationException("expr not implemented.");
             }
         };
     }
@@ -96,12 +103,10 @@ public class TestTokenizer extends TestCase
     private void testHello(CharSequence text) throws Exception
     {
         Tokenizer t = new Tokenizer(text);
-        assertEquals(Type.WORD, t.next());
-        assertEquals("hello", t.value().toString());
-        assertEquals(Type.WORD, t.next());
-        assertEquals("world", t.value().toString());
-        assertEquals(Type.NEWLINE, t.next());
-        assertEquals(Type.EOT, t.next());
+        assertEquals("hello", t.next().toString());
+        assertEquals("world", t.next().toString());
+        assertEquals("\n", t.next().toString());
+        assertNull(t.next());
     }
     
     @Test
@@ -114,12 +119,10 @@ public class TestTokenizer extends TestCase
     private void testString(CharSequence text) throws Exception
     {
         Tokenizer t = new Tokenizer(text);
-        assertEquals(Type.WORD, t.next());
-        assertEquals("'single $quote'", t.value().toString());
-        assertEquals(Type.WORD, t.next());
-        assertEquals("\"double $quote\"", t.value().toString());
-        assertEquals(Type.NEWLINE, t.next());
-        assertEquals(Type.EOT, t.next());
+        assertEquals("'single $quote'", t.next().toString());
+        assertEquals("\"double $quote\"", t.next().toString());
+        assertEquals("\n", t.next().toString());
+        assertNull(t.next());
     }
 
     @Test
@@ -127,32 +130,38 @@ public class TestTokenizer extends TestCase
     {
         testClosure2("x = { echo '}' $args //comment's\n}\n");
         testClosure2("x={ echo '}' $args //comment's\n}\n");
-        assertEquals(Type.CLOSURE, token1("{ echo \\{ $args \n}"));
-        assertEquals(Type.CLOSURE, token1("{ echo \\} $args \n}"));
+        token1("{ echo \\{ $args \n}");
+        token1("{ echo \\} $args \n}");
     }
 
-    /*
-     * x = {echo $args};
-     */
-    @Test
+    //
+    // x = {echo $args};
+    //
     private void testClosure2(CharSequence text) throws Exception
     {
         Tokenizer t = new Tokenizer(text);
-        assertEquals(Type.WORD, t.next());
-        assertEquals("x", t.value().toString());
-        assertEquals(Type.ASSIGN, t.next());
-        assertEquals(Type.CLOSURE, t.next());
-        assertEquals(" echo '}' $args //comment's\n", t.value().toString());
-        assertEquals(Type.NEWLINE, t.next());
-        assertEquals(Type.EOT, t.next());
+        assertEquals("x", t.next().toString());
+        assertEquals("=", t.next().toString());
+        assertEquals("{", t.next().toString());
+        assertEquals("echo", t.next().toString());
+        assertEquals("'}'", t.next().toString());
+        assertEquals("$args", t.next().toString());
+        assertEquals("\n", t.next().toString());
+        assertEquals("}", t.next().toString());
+        assertEquals("\n", t.next().toString());
+        assertEquals(null, t.next());
     }
 
-    private Type token1(CharSequence text) throws Exception
+    private void token1(CharSequence text) throws Exception
     {
         Tokenizer t = new Tokenizer(text);
-        Type type = t.next();
-        assertEquals(Type.EOT, t.next());
-        return type;
+        assertEquals("{", t.next().toString());
+        assertEquals("echo", t.next().toString());
+        t.next();
+        assertEquals("$args", t.next().toString());
+        assertEquals("\n", t.next().toString());
+        assertEquals("}", t.next().toString());
+        assertNull(t.next());
     }
 
     @Test
@@ -169,7 +178,7 @@ public class TestTokenizer extends TestCase
         vars.put(user, "Derek Baum");
 
         // quote removal
-        assertEquals("hello", expand("hello"));
+        assertEquals("hello", expand("hello").toString());
         assertEquals("hello", expand("'hello'"));
         assertEquals("\"hello\"", expand("'\"hello\"'"));
         assertEquals("hello", expand("\"hello\""));
@@ -275,7 +284,7 @@ public class TestTokenizer extends TestCase
 
     private Object expand(CharSequence word) throws Exception
     {
-        return Tokenizer.expand(word, evaluate);
+        return Expander.expand(word, evaluate);
     }
 
     @Test
@@ -284,12 +293,12 @@ public class TestTokenizer extends TestCase
         new Parser("// comment\n" + "a=\"who's there?\"; ps -ef;\n" + "ls | \n grep y\n").program();
         String p1 = "a=1 \\$b=2 c={closure}\n";
         new Parser(p1).program();
-        new Parser(new Token(Type.ARRAY, p1, (short) 0, (short) 0)).program();
+        new Parser("[" + p1 + "]").program();
     }
 
-    /**
-     * FELIX-4679 / FELIX-4671. 
-     */
+    //
+    // FELIX-4679 / FELIX-4671.
+    //
     @Test
     public void testScriptFelix4679() throws Exception
     {

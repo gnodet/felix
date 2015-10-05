@@ -33,7 +33,7 @@ public class Context extends CommandProcessorImpl
         addCommand("osgi", this, "addCommand");
         addCommand("osgi", this, "removeCommand");
         addCommand("osgi", this, "eval");
-        session = (CommandSessionImpl) createSession(System.in, System.out, System.err);
+        session = createSession(System.in, System.out, System.err);
     }
 
     public Object execute(CharSequence source) throws Exception
@@ -56,9 +56,9 @@ public class Context extends CommandProcessorImpl
         addCommand("test", target, function);
     }
 
-    public void set(String name, Object value)
+    public Object set(String name, Object value)
     {
-        session.put(name, value);
+        return session.put(name, value);
     }
 
     public Object get(String name)

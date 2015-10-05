@@ -27,6 +27,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import org.apache.felix.gogo.runtime.Parser.Pipeline;
+import org.apache.felix.gogo.runtime.Parser.Program;
+import org.apache.felix.gogo.runtime.Parser.Sequence;
+import org.apache.felix.gogo.runtime.Parser.Statement;
 import org.apache.felix.service.command.CommandSession;
 import org.apache.felix.service.command.Function;
 
@@ -171,12 +175,12 @@ public class TestParser extends AbstractParserTest
     public void testParentheses()
     {
         Parser parser = new Parser("(a|b)|(d|f)");
-        List<List<List<Token>>> p = parser.program();
-        assertEquals("a|b", p.get(0).get(0).get(0).toString());
+        Program p = parser.program();
+        assertEquals("a|b", ((Sequence) ((Statement) ((Pipeline) p.tokens().get(0)).tokens().get(0)).tokens().get(0)).program().toString());
 
         parser = new Parser("grep (d.*)|grep (d|f)");
         p = parser.program();
-        assertEquals("d.*", p.get(0).get(0).get(1).toString());
+        assertEquals("d.*", ((Sequence)((Statement) ((Pipeline) p.tokens().get(0)).tokens().get(0)).tokens().get(1)).program().toString());
     }
 
     public void testEcho() throws Exception
@@ -307,41 +311,52 @@ public class TestParser extends AbstractParserTest
 
     public void testProgram()
     {
-        List<List<List<Token>>> x = new Parser("abc def|ghi jkl;mno pqr|stu vwx").program();
-        assertEquals("abc", x.get(0).get(0).get(0).toString());
-        assertEquals("def", x.get(0).get(0).get(1).toString());
-        assertEquals("ghi", x.get(0).get(1).get(0).toString());
-        assertEquals("jkl", x.get(0).get(1).get(1).toString());
-        assertEquals("mno", x.get(1).get(0).get(0).toString());
-        assertEquals("pqr", x.get(1).get(0).get(1).toString());
-        assertEquals("stu", x.get(1).get(1).get(0).toString());
-        assertEquals("vwx", x.get(1).get(1).get(1).toString());
+        Program x = new Parser("abc def|ghi jkl;mno pqr|stu vwx").program();
+        Pipeline p0 = (Pipeline) x.tokens().get(0);
+        Statement s00 = (Statement) p0.tokens().get(0);
+        Statement s01 = (Statement) p0.tokens().get(1);
+        Pipeline p1 = (Pipeline) x.tokens().get(1);
+        Statement s10 = (Statement) p1.tokens().get(0);
+        Statement s11 = (Statement) p1.tokens().get(1);
+        assertEquals("abc", s00.tokens().get(0).toString());
+        assertEquals("def", s00.tokens().get(1).toString());
+        assertEquals("ghi", s01.tokens().get(0).toString());
+        assertEquals("jkl", s01.tokens().get(1).toString());
+        assertEquals("mno", s10.tokens().get(0).toString());
+        assertEquals("pqr", s10.tokens().get(1).toString());
+        assertEquals("stu", s11.tokens().get(0).toString());
+        assertEquals("vwx", s11.tokens().get(1).toString());
     }
 
     public void testStatements()
     {
-        List<List<Token>> x = new Parser("abc def|ghi jkl|mno pqr").program().get(0);
-        assertEquals("abc", x.get(0).get(0).toString());
-        assertEquals("def", x.get(0).get(1).toString());
-        assertEquals("ghi", x.get(1).get(0).toString());
-        assertEquals("jkl", x.get(1).get(1).toString());
-        assertEquals("mno", x.get(2).get(0).toString());
-        assertEquals("pqr", x.get(2).get(1).toString());
+        Program x = new Parser("abc def|ghi jkl|mno pqr").program();
+        Pipeline p0 = (Pipeline) x.tokens().get(0);
+        Statement s00 = (Statement) p0.tokens().get(0);
+        Statement s01 = (Statement) p0.tokens().get(1);
+        Statement s02 = (Statement) p0.tokens().get(2);
+        assertEquals("abc", s00.tokens().get(0).toString());
+        assertEquals("def", s00.tokens().get(1).toString());
+        assertEquals("ghi", s01.tokens().get(0).toString());
+        assertEquals("jkl", s01.tokens().get(1).toString());
+        assertEquals("mno", s02.tokens().get(0).toString());
+        assertEquals("pqr", s02.tokens().get(1).toString());
     }
 
     public void testSimpleValue()
     {
-        List<Token> x = new Parser(
+        Program p = new Parser(
             "abc def.ghi http://www.osgi.org?abc=&x=1 [1,2,3] {{{{{{{xyz}}}}}}} (immediate) {'{{{{{'} {\\{} 'abc{}'")
-            .program().get(0).get(0);
+            .program();
+        List<Token> x = ((Statement) p.tokens().get(0)).tokens();
         assertEquals("abc", x.get(0).toString());
         assertEquals("def.ghi", x.get(1).toString());
         assertEquals("http://www.osgi.org?abc=&x=1", x.get(2).toString());
-        assertEquals("1,2,3", x.get(3).toString());
-        assertEquals("{{{{{{xyz}}}}}}", x.get(4).toString());
-        assertEquals("immediate", x.get(5).toString());
-        assertEquals("'{{{{{'", x.get(6).toString());
-        assertEquals("\\{", x.get(7).toString());
+        assertEquals("[1,2,3]", x.get(3).toString());
+        assertEquals("{{{{{{{xyz}}}}}}}", x.get(4).toString());
+        assertEquals("(immediate)", x.get(5).toString());
+        assertEquals("{'{{{{{'}", x.get(6).toString());
+        assertEquals("{\\{}", x.get(7).toString());
         assertEquals("'abc{}'", x.get(8).toString());
     }
 
