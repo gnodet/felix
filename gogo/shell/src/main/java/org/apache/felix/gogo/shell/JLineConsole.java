@@ -55,9 +55,6 @@ import org.apache.felix.gogo.runtime.Parser.Program;
 import org.apache.felix.gogo.runtime.Parser.Statement;
 import org.apache.felix.gogo.runtime.SyntaxError;
 import org.apache.felix.gogo.runtime.Token;
-import org.apache.felix.gogo.shell.Main;
-import org.apache.felix.gogo.shell.Posix;
-import org.apache.felix.gogo.shell.Shell;
 import org.apache.felix.service.command.CommandProcessor;
 import org.apache.felix.service.command.CommandSession;
 import org.apache.felix.service.command.Converter;
@@ -79,7 +76,6 @@ import org.jline.keymap.KeyMap;
 import org.jline.keymap.Macro;
 import org.jline.keymap.Reference;
 import org.jline.keymap.Widget;
-import org.jline.reader.ConsoleReaderImpl;
 import org.jline.reader.DefaultHighlighter;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.ParsedLine;
@@ -113,7 +109,7 @@ public class JLineConsole implements Runnable {
 
     CommandSession session;
     org.jline.Console console;
-    ConsoleReaderImpl reader;
+    ConsoleReader reader;
 
     public JLineConsole(CommandProcessor processor, CommandSession session) throws IOException {
         this.session = session;
@@ -121,11 +117,11 @@ public class JLineConsole implements Runnable {
                             .appName("gogo")
                             .variables(((CommandSessionImpl) session).getVariables())
                             .completer(new Completer(session))
-                            .highlighter(new Highlighter(session))
+//                            .highlighter(new Highlighter(session))
                             .history(new FileHistory(new File(System.getProperty("user.home"), ".gogo.history")))
                             .parser(new Parser())
                             .build();
-        this.reader = (ConsoleReaderImpl) console.newConsoleReader();
+        this.reader = console.newConsoleReader();
         this.session.put(VAR_CONSOLE, console);
         this.session.put(VAR_READER, reader);
         this.session.put(VAR_PROCESSOR, processor);
@@ -144,8 +140,8 @@ public class JLineConsole implements Runnable {
         return (Console) session.get(VAR_CONSOLE);
     }
 
-    public static ConsoleReaderImpl getReader(CommandSession session) {
-        return (ConsoleReaderImpl) session.get(VAR_READER);
+    public static ConsoleReader getReader(CommandSession session) {
+        return (ConsoleReader) session.get(VAR_READER);
     }
 
     public static CommandProcessor getProcessor(CommandSession session) {
@@ -268,13 +264,11 @@ public class JLineConsole implements Runnable {
 
                 int underlineStart = -1;
                 int underlineEnd = -1;
-                if (reader instanceof ConsoleReaderImpl) {
-                    String search = ((ConsoleReaderImpl) reader).getSearchTerm();
-                    if (search != null && search.length() > 0) {
-                        underlineStart = buffer.indexOf(search);
-                        if (underlineStart >= 0) {
-                            underlineEnd = underlineStart + search.length() - 1;
-                        }
+                String search = reader.getSearchTerm();
+                if (search != null && search.length() > 0) {
+                    underlineStart = buffer.indexOf(search);
+                    if (underlineStart >= 0) {
+                        underlineEnd = underlineStart + search.length() - 1;
                     }
                 }
 
@@ -906,7 +900,7 @@ public class JLineConsole implements Runnable {
                 return;
             }
 
-            ConsoleReaderImpl reader = getReader(session);
+            ConsoleReader reader = getReader(session);
             History history = reader.getHistory();
             if (opt.isSet("clear")) {
                 history.clear();
@@ -1017,7 +1011,7 @@ public class JLineConsole implements Runnable {
                 opt.usage();
                 return;
             }
-            ConsoleReaderImpl reader = getReader(session);
+            ConsoleReader reader = getReader(session);
 
             int actions = (opt.isSet("N") ? 1 : 0)
                     + (opt.isSet("D") ? 1 : 0)
@@ -1123,7 +1117,7 @@ public class JLineConsole implements Runnable {
                 return;
             }
 
-            ConsoleReaderImpl reader = getReader(session);
+            ConsoleReader reader = getReader(session);
             Map<String, KeyMap> keyMaps = reader.getKeyMaps();
 
             int actions = (opt.isSet("N") ? 1 : 0)
@@ -1234,7 +1228,7 @@ public class JLineConsole implements Runnable {
             }
             else if (opt.isSet("r")) {
                 // Select keymap
-                String keyMapName = ConsoleReaderImpl.MAIN;
+                String keyMapName = ConsoleReader.MAIN;
                 int sel = (opt.isSet("a") ? 1 : 0)
                         + (opt.isSet("e") ? 1 : 0)
                         + (opt.isSet("v") ? 1 : 0)
@@ -1243,11 +1237,11 @@ public class JLineConsole implements Runnable {
                     System.err.println("keymap: incompatible keymap selection options");
                     return;
                 } else if (opt.isSet("a")) {
-                    keyMapName = ConsoleReaderImpl.VICMD;
+                    keyMapName = ConsoleReader.VICMD;
                 } else if (opt.isSet("e")) {
-                    keyMapName = ConsoleReaderImpl.EMACS;
+                    keyMapName = ConsoleReader.EMACS;
                 } else if (opt.isSet("v")) {
-                    keyMapName = ConsoleReaderImpl.VIINS;
+                    keyMapName = ConsoleReader.VIINS;
                 } else if (opt.isSet("M")) {
                     if (opt.args().isEmpty()) {
                         System.err.println("keymap: argument expected: -M");
@@ -1287,12 +1281,12 @@ public class JLineConsole implements Runnable {
                     map.unbind(seq);
                 }
                 if (opt.isSet("e") || opt.isSet("v")) {
-                    keyMaps.put(ConsoleReaderImpl.MAIN, map);
+                    keyMaps.put(ConsoleReader.MAIN, map);
                 }
             }
             else if (opt.isSet("s") || opt.args().size() > 1) {
                 // Select keymap
-                String keyMapName = ConsoleReaderImpl.MAIN;
+                String keyMapName = ConsoleReader.MAIN;
                 int sel = (opt.isSet("a") ? 1 : 0)
                         + (opt.isSet("e") ? 1 : 0)
                         + (opt.isSet("v") ? 1 : 0)
@@ -1301,11 +1295,11 @@ public class JLineConsole implements Runnable {
                     System.err.println("keymap: incompatible keymap selection options");
                     return;
                 } else if (opt.isSet("a")) {
-                    keyMapName = ConsoleReaderImpl.VICMD;
+                    keyMapName = ConsoleReader.VICMD;
                 } else if (opt.isSet("e")) {
-                    keyMapName = ConsoleReaderImpl.EMACS;
+                    keyMapName = ConsoleReader.EMACS;
                 } else if (opt.isSet("v")) {
-                    keyMapName = ConsoleReaderImpl.VIINS;
+                    keyMapName = ConsoleReader.VIINS;
                 } else if (opt.isSet("M")) {
                     if (opt.args().isEmpty()) {
                         System.err.println("keymap: argument expected: -M");
@@ -1341,12 +1335,12 @@ public class JLineConsole implements Runnable {
                     }
                 }
                 if (opt.isSet("e") || opt.isSet("v")) {
-                    keyMaps.put(ConsoleReaderImpl.MAIN, map);
+                    keyMaps.put(ConsoleReader.MAIN, map);
                 }
             }
             else {
                 // Select keymap
-                String keyMapName = ConsoleReaderImpl.MAIN;
+                String keyMapName = ConsoleReader.MAIN;
                 int sel = (opt.isSet("a") ? 1 : 0)
                         + (opt.isSet("e") ? 1 : 0)
                         + (opt.isSet("v") ? 1 : 0)
@@ -1355,11 +1349,11 @@ public class JLineConsole implements Runnable {
                     System.err.println("keymap: incompatible keymap selection options");
                     return;
                 } else if (opt.isSet("a")) {
-                    keyMapName = ConsoleReaderImpl.VICMD;
+                    keyMapName = ConsoleReader.VICMD;
                 } else if (opt.isSet("e")) {
-                    keyMapName = ConsoleReaderImpl.EMACS;
+                    keyMapName = ConsoleReader.EMACS;
                 } else if (opt.isSet("v")) {
-                    keyMapName = ConsoleReaderImpl.VIINS;
+                    keyMapName = ConsoleReader.VIINS;
                 } else if (opt.isSet("M")) {
                     if (opt.args().isEmpty()) {
                         System.err.println("keymap: argument expected: -M");
@@ -1430,7 +1424,7 @@ public class JLineConsole implements Runnable {
                     }
                 }
                 if (opt.isSet("e") || opt.isSet("v")) {
-                    keyMaps.put(ConsoleReaderImpl.MAIN, map);
+                    keyMaps.put(ConsoleReader.MAIN, map);
                 }
             }
         }
@@ -1449,7 +1443,7 @@ public class JLineConsole implements Runnable {
                 return;
             }
             if (opt.args().isEmpty()) {
-                ConsoleReaderImpl reader = getReader(session);
+                ConsoleReader reader = getReader(session);
                 for (Option option : Option.values()) {
                     if (reader.isSet(option) != option.isDef()) {
                         System.out.println((option.isDef() ? "no-" : "") + option.toString().toLowerCase().replace('_', '-'));
@@ -1476,7 +1470,7 @@ public class JLineConsole implements Runnable {
                 return;
             }
             if (opt.args().isEmpty()) {
-                ConsoleReaderImpl reader = getReader(session);
+                ConsoleReader reader = getReader(session);
                 for (Option option : Option.values()) {
                     if (reader.isSet(option) == option.isDef()) {
                         System.out.println((option.isDef() ? "no-" : "") + option.toString().toLowerCase().replace('_', '-'));
@@ -1548,7 +1542,7 @@ public class JLineConsole implements Runnable {
         }
 
         private void doSetOpts(CommandSession session, List<String> options, boolean match, boolean set) {
-            ConsoleReaderImpl reader = getReader(session);
+            ConsoleReader reader = getReader(session);
             for (String name : options) {
                 String tname = name.toLowerCase().replaceAll("[-_]", "");
                 if (match) {
