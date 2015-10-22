@@ -45,7 +45,7 @@ try {
 
   # set prompt
   prompt = 'g! '
-  \#rprompt = { (new java.text.SimpleDateFormat "HH:mm:ss") format (new Date) }
+  \#rprompt = { (new java.text.SimpleDateFormat \'\u001B\[90m\'HH:mm:ss) format (new Date) }
 
 
   __option_not_present = {
@@ -125,6 +125,17 @@ try {
 
   complete -c gogo:ls -e
   complete -c gogo:ls -d "List files"
+  complete -c gogo:ls -s a -d "List entries starting with ."
+  complete -c gogo:ls -s F -d "Append file type indicators"
+  complete -c gogo:ls -s m -d "Comma separated"
+  complete -c gogo:ls -s l -d "Long listing"
+  complete -c gogo:ls -s S -d "Sort by size"
+  complete -c gogo:ls -s f -d "Output is not sorted"
+  complete -c gogo:ls -s r -d "Reverse sort order"
+  complete -c gogo:ls -s t -d "Sort by modification time"
+  complete -c gogo:ls -s x -d "Sort horizontally"
+  complete -c gogo:ls -s h -d "Print sizes in human readable form"
+  complete -c gogo:ls -a '__files'
 
   complete -c gogo:cd -e
   complete -c gogo:cd -d "Change current directory"
