@@ -18,6 +18,7 @@
  */
 package org.apache.felix.gogo.jline;
 
+import java.io.IOException;
 import java.util.Dictionary;
 import java.util.HashSet;
 import java.util.Hashtable;
@@ -32,6 +33,9 @@ import org.apache.felix.gogo.jline.telnet.Telnet;
 import org.apache.felix.service.command.CommandProcessor;
 import org.apache.felix.service.command.CommandSession;
 import org.apache.felix.service.command.Converter;
+import org.apache.felix.service.threadio.OriginalIO;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
@@ -141,7 +145,9 @@ public class Activator implements BundleActivator {
         }
 
         public void run() {
-            CommandSession session = processor.createSession(System.in, System.out, System.err);
+        	Terminal terminal = createTerminal();
+            CommandSession session = processor.createSession(terminal.input(), terminal.output(), terminal.output());
+            session.put(Shell.VAR_TERMINAL, terminal);
             try {
                 // wait for gosh command to be registered
                 for (int i = 0; (i < 100) && session.get("gogo:gosh") == null; ++i) {
@@ -163,6 +169,24 @@ public class Activator implements BundleActivator {
                 session.close();
             }
         }
+
+		private Terminal createTerminal() {
+			// We rely on the OriginalIO service to be available when the CommandProcessor is available
+			ServiceReference<OriginalIO> ref = context.getServiceReference(OriginalIO.class);
+			try {
+				OriginalIO originalIO = context.getService(ref);
+				return TerminalBuilder.builder()
+				        .name("gogo")
+				        .type(System.getenv("TERM"))
+				        .system(true)
+				        .streams(originalIO.getIn(), originalIO.getOut())
+				        .build();
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			} finally {
+				context.ungetService(ref);
+			}
+		}
     }
 
     private class ShellContext implements Context {

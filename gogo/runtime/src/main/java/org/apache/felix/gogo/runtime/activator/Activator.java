@@ -31,6 +31,7 @@ import org.apache.felix.gogo.runtime.CommandProxy;
 import org.apache.felix.gogo.runtime.threadio.ThreadIOImpl;
 import org.apache.felix.service.command.CommandProcessor;
 import org.apache.felix.service.command.Converter;
+import org.apache.felix.service.threadio.OriginalIO;
 import org.apache.felix.service.threadio.ThreadIO;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
@@ -78,7 +79,8 @@ public class Activator implements BundleActivator
     {
         threadio = new ThreadIOImpl();
         threadio.start();
-        threadioRegistration = context.registerService(ThreadIO.class.getName(), threadio, null);
+        String[] ifAr = new String[]{ThreadIO.class.getName(), OriginalIO.class.getName()};
+		threadioRegistration = context.registerService(ifAr, threadio, null);
 
         processorRegistration = newProcessor(threadio, context);
         

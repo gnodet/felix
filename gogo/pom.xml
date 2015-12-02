@@ -37,6 +37,7 @@
         <module>jline</module>
         <module>shell</module>
         <module>command</module>
+        <module>ssh</module>
     </modules>
 
 </project>

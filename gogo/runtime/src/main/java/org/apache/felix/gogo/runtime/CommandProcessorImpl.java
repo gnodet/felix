@@ -20,6 +20,7 @@ package org.apache.felix.gogo.runtime;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -75,8 +76,15 @@ public class CommandProcessorImpl implements CommandProcessor
             return session;
         }
     }
+    
+	@Override
+	public CommandSession createSession(InputStream in, PrintStream out, PrintStream err) {
+		return createSession(in, (OutputStream)out, (OutputStream)err);
+	}
 
-    public CommandSessionImpl createSession(InputStream in, OutputStream out, OutputStream err)
+	@Override
+	public CommandSession createSession(InputStream in, OutputStream out, OutputStream err)
+    
     {
         synchronized (sessions)
         {

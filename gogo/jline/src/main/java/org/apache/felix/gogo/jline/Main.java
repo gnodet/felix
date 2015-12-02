@@ -23,7 +23,6 @@ import java.io.InputStream;
 import java.io.PrintStream;
 
 import org.apache.felix.gogo.jline.Shell.Context;
-import org.apache.felix.gogo.jline.ssh.Ssh;
 import org.apache.felix.gogo.jline.telnet.Telnet;
 import org.apache.felix.gogo.runtime.CommandProcessorImpl;
 import org.apache.felix.gogo.runtime.threadio.ThreadIOImpl;
@@ -59,11 +58,6 @@ public class Main {
                 register(processor, shell, Shell.functions);
                 try {
                     register(processor, new Telnet(processor), Telnet.functions);
-                } catch (Throwable t) {
-                    // ignore
-                }
-                try {
-                    register(processor, new Ssh(processor), Ssh.functions);
                 } catch (Throwable t) {
                     // ignore
                 }

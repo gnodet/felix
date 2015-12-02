@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.felix.gogo.jline.ssh;
+package org.apache.felix.gogo.ssh.server;
 
 import org.apache.felix.service.command.CommandProcessor;
 import org.apache.sshd.server.Command;

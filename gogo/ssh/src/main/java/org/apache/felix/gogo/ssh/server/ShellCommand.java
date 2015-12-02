@@ -16,18 +16,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.felix.gogo.jline.ssh;
+package org.apache.felix.gogo.ssh.server;
 
-import java.io.CharArrayWriter;
 import java.io.File;
-import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.io.Reader;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -51,7 +49,6 @@ public class ShellCommand implements Command, Runnable, SessionAware {
     private OutputStream out;
     private OutputStream err;
     private ExitCallback callback;
-    private ServerSession session;
     private CommandProcessor processor;
     private Environment env;
 
@@ -60,31 +57,37 @@ public class ShellCommand implements Command, Runnable, SessionAware {
         this.command = command;
     }
 
+    @Override
     public void setInputStream(InputStream in) {
         this.in = in;
     }
 
+    @Override
     public void setOutputStream(OutputStream out) {
         this.out = out;
     }
 
+    @Override
     public void setErrorStream(OutputStream err) {
         this.err = err;
     }
 
+    @Override
     public void setExitCallback(ExitCallback callback) {
         this.callback = callback;
     }
 
+    @Override
     public void setSession(ServerSession session) {
-        this.session = session;
     }
 
+    @Override
     public void start(final Environment env) throws IOException {
         this.env = env;
         new Thread(this).start();
     }
 
+    @Override
     public void run() {
         int exitStatus = 0;
         try {
@@ -93,11 +96,7 @@ public class ShellCommand implements Command, Runnable, SessionAware {
                 session.put(e.getKey(), e.getValue());
             }
             try {
-                String scriptFileName = System.getProperty(EXEC_INIT_SCRIPT);
-                if (scriptFileName == null) {
-                    scriptFileName = System.getProperty(SHELL_INIT_SCRIPT);
-                }
-                executeScript(scriptFileName, session);
+                executeInitScript(session);
                 session.execute(command);
             } catch (Throwable t) {
                 exitStatus = 1;
@@ -107,7 +106,7 @@ public class ShellCommand implements Command, Runnable, SessionAware {
             exitStatus = 1;
             LOGGER.log(Level.SEVERE, "Unable to start shell", e);
         } finally {
-            ShellFactoryImpl.close(in, out, err);
+            SshShell.close(in, out, err);
             callback.onExit(exitStatus);
         }
     }
@@ -115,31 +114,29 @@ public class ShellCommand implements Command, Runnable, SessionAware {
     public void destroy() {
     }
 
-    private void executeScript(String scriptFileName, CommandSession session) {
+    private void executeInitScript(CommandSession session) {
+        String scriptFileName = System.getProperty(EXEC_INIT_SCRIPT);
+        if (scriptFileName == null) {
+            scriptFileName = System.getProperty(SHELL_INIT_SCRIPT);
+        }
         if (scriptFileName != null) {
-            Reader r = null;
             try {
-                File scriptFile = new File(scriptFileName);
-                r = new InputStreamReader(new FileInputStream(scriptFile));
-                CharArrayWriter w = new CharArrayWriter();
-                int n;
-                char[] buf = new char[8192];
-                while ((n = r.read(buf)) > 0) {
-                    w.write(buf, 0, n);
-                }
-                session.execute(new String(w.toCharArray()));
-            } catch (Exception e) {
-                LOGGER.log(Level.FINE, "Error in initialization script", e);
-            } finally {
-                if (r != null) {
-                    try {
-                        r.close();
-                    } catch (IOException e) {
-                        // Ignore
-                    }
-                }
-            }
+            	String script = loadFile(scriptFileName);
+            	session.execute(script);
+			} catch (Exception e) {
+				LOGGER.log(Level.FINE, "Error in initialization script", e);
+			}
         }
     }
+
+	private String loadFile(String path) throws FileNotFoundException {
+		Scanner scanner = new Scanner(new File(path));
+		try {
+			return scanner.useDelimiter("\\Z").next();
+		} finally {
+			scanner.close();
+		}
+		
+	}
 
 }
