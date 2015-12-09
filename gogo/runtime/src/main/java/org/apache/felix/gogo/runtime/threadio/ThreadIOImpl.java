@@ -23,10 +23,9 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.logging.Logger;
 
-import org.apache.felix.service.threadio.OriginalIO;
 import org.apache.felix.service.threadio.ThreadIO;
 
-public class ThreadIOImpl implements ThreadIO, OriginalIO
+public class ThreadIOImpl implements ThreadIO
 {
     static private final Logger log = Logger.getLogger(ThreadIOImpl.class.getName());
 
@@ -131,18 +130,4 @@ public class ThreadIOImpl implements ThreadIO, OriginalIO
         this.current.set(marker);
     }
 
-	@Override
-	public InputStream getIn() {
-		return defaultMarker.getIn();
-	}
-
-	@Override
-	public PrintStream getOut() {
-		return defaultMarker.getOut();
-	}
-
-	@Override
-	public PrintStream getErr() {
-		return defaultMarker.getErr();
-	}
 }

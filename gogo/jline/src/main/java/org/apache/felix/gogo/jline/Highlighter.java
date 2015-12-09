@@ -51,7 +51,7 @@ public class Highlighter extends DefaultHighlighter {
             Program program = null;
             List<Token> tokens = null;
             List<Statement> statements = null;
-            String repaired = buffer + " ";
+            String repaired = buffer;
             while (program == null) {
                 try {
                     org.apache.felix.gogo.runtime.Parser parser = new org.apache.felix.gogo.runtime.Parser(repaired);
@@ -59,6 +59,9 @@ public class Highlighter extends DefaultHighlighter {
                     tokens = parser.tokens();
                     statements = parser.statements();
                 } catch (EOFError e) {
+                    if (repaired == buffer) {
+                        repaired = repaired + " ";
+                    }
                     repaired = repaired + e.repair();
                 }
             }

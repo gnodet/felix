@@ -33,16 +33,7 @@ import org.jline.terminal.TerminalBuilder;
 public class Main {
 
     public static void main(String[] args) throws IOException {
-        InputStream sin = System.in;
-        PrintStream sout = System.out;
-        PrintStream serr = System.err;
-
-        try (Terminal terminal = TerminalBuilder.builder()
-                .name("gogo")
-                .type(System.getenv("TERM"))
-                .system(true)
-                .streams(sin, sout)
-                .build()) {
+        try (Terminal terminal = TerminalBuilder.terminal()) {
             ThreadIOImpl tio = new ThreadIOImpl();
             tio.start();
             try {

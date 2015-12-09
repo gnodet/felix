@@ -101,6 +101,10 @@ public class Shell {
         this.profile = profile != null ? profile : "gosh_profile";
     }
 
+    public Context getContext() {
+        return context;
+    }
+
     public static Terminal getTerminal(CommandSession session) {
         return (Terminal) session.get(VAR_TERMINAL);
     }
