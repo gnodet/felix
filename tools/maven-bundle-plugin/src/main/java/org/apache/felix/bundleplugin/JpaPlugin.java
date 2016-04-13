@@ -71,6 +71,7 @@ public class JpaPlugin implements AnalyzerPlugin
 
         transformer.setParameter( "jpa-enable", analyzer.getProperty( "jpa-enable", "true" ) );
         transformer.setParameter( "jpa-implementation", analyzer.getProperty( "jpa-implementation", "aries" ) );
+        transformer.setParameter( "jpa-datasource-req", analyzer.getProperty( "jpa-datasource-req", "true" ) );
 
         Map<String, ? extends Map<String, String>> map = Processor.parseHeader( mpHeader, null );
         for ( String root : map.keySet() )

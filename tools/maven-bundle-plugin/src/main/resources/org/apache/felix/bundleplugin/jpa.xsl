@@ -25,6 +25,7 @@
     <!-- Transformer properties -->
     <xsl:param name="jpa-enable"/>
     <xsl:param name="jpa-implementation"/>
+    <xsl:param name="jpa-datasource-req"/>
 
     <xsl:variable name="nl">
         <xsl:text>&#xD;</xsl:text>
@@ -82,6 +83,48 @@
                 <xsl:call-template name="service-requirement">
                     <xsl:with-param name="interface" select="'javax.transaction.TransactionManager'"/>
                 </xsl:call-template>
+            </xsl:if>
+
+            <!-- DataSource requirement -->
+            <xsl:if test="$jpa-datasource-req = 'true'">
+                <xsl:for-each select="//jpa:persistence-unit[@transaction-type='JTA']/jpa:jta-data-source">
+                    <xsl:if test="starts-with(text(), 'osgi:service/')">
+                        <xsl:variable name="rem1" select="substring-after(text(), '/')"/>
+                        <xsl:variable name="rem2" select="substring-before($rem1, '/')"/>
+                        <xsl:variable name="rem3" select="substring-after($rem1, '/')"/>
+                        <xsl:call-template name="service-requirement">
+                            <xsl:with-param name="interface" select="$rem2" />
+                            <xsl:with-param name="attributes">
+                                <xsl:if test="string-length($rem3) > 0">
+                                    <xsl:value-of select="concat('filter:=&quot;', $rem3, '&quot;')"/>
+                                </xsl:if>
+                            </xsl:with-param>
+                        </xsl:call-template>
+                    </xsl:if>
+                </xsl:for-each>
+                <xsl:for-each select="//jpa:persistence-unit[@transaction-type='RESOURCE_LOCAL']/jpa:non-jta-data-source">
+                    <xsl:if test="starts-with(text(), 'osgi:service/')">
+                        <xsl:variable name="rem1" select="substring-after(text(), '/')"/>
+                        <xsl:variable name="rem2" select="substring-before($rem1, '/')"/>
+                        <xsl:variable name="rem3" select="substring-after($rem1, '/')"/>
+                        <xsl:call-template name="service-requirement">
+                            <xsl:with-param name="interface" select="$rem2" />
+                            <xsl:with-param name="attributes">
+                                <xsl:if test="string-length($rem3) > 0">
+                                    <xsl:value-of select="concat('filter:=&quot;', $rem3, '&quot;')"/>
+                                </xsl:if>
+                            </xsl:with-param>
+                        </xsl:call-template>
+                    </xsl:if>
+                </xsl:for-each>
+                <xsl:for-each select="//jpa:persistence-unit[count(jpa:jta-data-source) + count(jpa:non-jta-data-source) = 0]/jpa:properties/jpa:property[@name='javax.persistence.jdbc.driver']">
+                    <xsl:call-template name="service-requirement">
+                        <xsl:with-param name="interface" select="'org.osgi.service.jdbc.DataSourceFactory'" />
+                        <xsl:with-param name="attributes">
+                            <xsl:value-of select="concat('osgi.jdbc.driver.class=', @value)"/>
+                        </xsl:with-param>
+                    </xsl:call-template>
+                </xsl:for-each>
             </xsl:if>
         </xsl:if>
     </xsl:template>
