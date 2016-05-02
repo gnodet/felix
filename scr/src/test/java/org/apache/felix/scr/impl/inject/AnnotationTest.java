@@ -16,15 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.felix.scr.impl.helper;
+package org.apache.felix.scr.impl.inject;
 
 import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.felix.scr.impl.inject.Annotations;
 import org.easymock.EasyMock;
 import org.osgi.framework.Bundle;
 
