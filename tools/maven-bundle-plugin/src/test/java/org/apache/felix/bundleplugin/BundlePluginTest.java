@@ -22,20 +22,60 @@ package org.apache.felix.bundleplugin;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOError;
+import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.jar.Manifest;
 
+import static org.apache.felix.bundleplugin.BundlePlugin.getMavenResourcePaths;
+import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Organization;
 import org.apache.maven.plugin.testing.stubs.MavenProjectStub;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.shared.dependency.graph.DependencyGraphBuilder;
 import org.apache.maven.shared.dependency.graph.DependencyNode;
+import org.eclipse.aether.RepositorySystem;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.SyncContext;
+import org.eclipse.aether.artifact.DefaultArtifact;
+import org.eclipse.aether.collection.CollectRequest;
+import org.eclipse.aether.collection.CollectResult;
+import org.eclipse.aether.collection.DependencyCollectionException;
+import org.eclipse.aether.deployment.DeployRequest;
+import org.eclipse.aether.deployment.DeployResult;
+import org.eclipse.aether.deployment.DeploymentException;
+import org.eclipse.aether.graph.DefaultDependencyNode;
+import org.eclipse.aether.graph.Dependency;
+import org.eclipse.aether.impl.ArtifactResolver;
+import org.eclipse.aether.installation.InstallRequest;
+import org.eclipse.aether.installation.InstallResult;
+import org.eclipse.aether.installation.InstallationException;
+import org.eclipse.aether.repository.LocalRepository;
+import org.eclipse.aether.repository.LocalRepositoryManager;
+import org.eclipse.aether.repository.RemoteRepository;
+import org.eclipse.aether.resolution.ArtifactDescriptorException;
+import org.eclipse.aether.resolution.ArtifactDescriptorRequest;
+import org.eclipse.aether.resolution.ArtifactDescriptorResult;
+import org.eclipse.aether.resolution.ArtifactRequest;
+import org.eclipse.aether.resolution.ArtifactResult;
+import org.eclipse.aether.resolution.DependencyRequest;
+import org.eclipse.aether.resolution.DependencyResult;
+import org.eclipse.aether.resolution.MetadataRequest;
+import org.eclipse.aether.resolution.MetadataResult;
+import org.eclipse.aether.resolution.VersionRangeRequest;
+import org.eclipse.aether.resolution.VersionRangeResolutionException;
+import org.eclipse.aether.resolution.VersionRangeResult;
+import org.eclipse.aether.resolution.VersionRequest;
+import org.eclipse.aether.resolution.VersionResolutionException;
+import org.eclipse.aether.resolution.VersionResult;
 import org.osgi.framework.Constants;
 
 import aQute.bnd.osgi.Analyzer;
@@ -52,15 +92,22 @@ public class BundlePluginTest extends AbstractBundlePluginTest
 {
 
     private BundlePlugin plugin;
+    private ArtifactStubFactory artifactFactory;
 
 
     @Override
     protected void setUp() throws Exception
     {
+        File outputDirectory = new File(getBasedir(), "target" + File.separatorChar + "scratch");
+
+        artifactFactory = new ArtifactStubFactory( outputDirectory, true );
+
+        getContainer().addComponent(new StubRepositorySystem(artifactFactory), RepositorySystem.class.getName());
+        getContainer().addComponent(new StubArtifactResolver(), ArtifactResolver.class.getName());
         super.setUp();
         plugin = new BundlePlugin();
         plugin.setBuildDirectory( "." );
-        plugin.setOutputDirectory(new File(getBasedir(), "target" + File.separatorChar + "scratch"));
+        plugin.setOutputDirectory(outputDirectory);
         setVariableValueToObject(plugin, "m_dependencyGraphBuilder", lookup(DependencyGraphBuilder.class.getName(), "default"));
     }
 
@@ -136,7 +183,7 @@ public class BundlePluginTest extends AbstractBundlePluginTest
 
     public void testTransformDirectives() throws Exception
     {
-        Map instructions = new TreeMap();
+        Map<String, String> instructions = new TreeMap<>();
 
         instructions.put( "a", "1" );
         instructions.put( "-a", "2" );
@@ -211,7 +258,7 @@ public class BundlePluginTest extends AbstractBundlePluginTest
         MavenProject project = getMavenProjectStub();
         project.addCompileSourceRoot( getBasedir() + "/src/test/java" );
 
-        String resourcePaths = plugin.getMavenResourcePaths( project, false );
+        String resourcePaths = getMavenResourcePaths( project, false );
 
         assertEquals( "org/apache/felix/bundleplugin/packageinfo="
             + "src/test/java/org/apache/felix/bundleplugin/packageinfo", resourcePaths );
@@ -220,22 +267,14 @@ public class BundlePluginTest extends AbstractBundlePluginTest
 
     public void testEmbedDependencyPositiveClauses() throws Exception
     {
-        ArtifactStubFactory artifactFactory = new ArtifactStubFactory( plugin.getOutputDirectory(), true );
-
-        Set artifacts = new LinkedHashSet();
-
-        artifacts.addAll( artifactFactory.getClassifiedArtifacts() );
-        artifacts.addAll( artifactFactory.getScopedArtifacts() );
-        artifacts.addAll( artifactFactory.getTypedArtifacts() );
-
         MavenProject project = getMavenProjectStub();
-        project.setDependencyArtifacts( artifacts );
 
-        Map instructions = new HashMap();
+        Map<String, String> instructions = new HashMap<>();
         instructions.put( DependencyEmbedder.EMBED_DEPENDENCY, "*;classifier=;type=jar;scope=compile,"
             + "*;classifier=;type=jar;scope=runtime" );
         Properties props = new Properties();
 
+        plugin.session = newMavenSession( project );
         DependencyNode dependencyGraph = plugin.buildDependencyGraph(project);
         Builder builder = plugin.buildOSGiBundle( project, dependencyGraph, instructions, props, plugin.getClasspath( project, dependencyGraph ) );
         Manifest manifest = builder.getJar().getManifest();
@@ -251,21 +290,13 @@ public class BundlePluginTest extends AbstractBundlePluginTest
 
     public void testEmbedDependencyNegativeClauses() throws Exception
     {
-        ArtifactStubFactory artifactFactory = new ArtifactStubFactory( plugin.getOutputDirectory(), true );
-
-        Set artifacts = new LinkedHashSet();
-
-        artifacts.addAll( artifactFactory.getClassifiedArtifacts() );
-        artifacts.addAll( artifactFactory.getScopedArtifacts() );
-        artifacts.addAll( artifactFactory.getTypedArtifacts() );
-
         MavenProject project = getMavenProjectStub();
-        project.setDependencyArtifacts( artifacts );
 
-        Map instructions = new HashMap();
+        Map<String, String> instructions = new HashMap<>();
         instructions.put( DependencyEmbedder.EMBED_DEPENDENCY, "!type=jar, !artifactId=c" );
         Properties props = new Properties();
 
+        plugin.session = newMavenSession( project );
         DependencyNode dependencyGraph = plugin.buildDependencyGraph(project);
         Builder builder = plugin.buildOSGiBundle( project, dependencyGraph, instructions, props, plugin.getClasspath( project, dependencyGraph ) );
         Manifest manifest = builder.getJar().getManifest();
@@ -281,20 +312,13 @@ public class BundlePluginTest extends AbstractBundlePluginTest
 
     public void testEmbedDependencyDuplicateKeys() throws Exception
     {
-        ArtifactStubFactory artifactFactory = new ArtifactStubFactory( plugin.getOutputDirectory(), true );
-
-        Set artifacts = new LinkedHashSet();
-
-        artifacts.addAll( artifactFactory.getClassifiedArtifacts() );
-        artifacts.addAll( artifactFactory.getScopedArtifacts() );
-        artifacts.addAll( artifactFactory.getTypedArtifacts() );
-
         MavenProject project = getMavenProjectStub();
-        project.setDependencyArtifacts( artifacts );
 
-        Map instructions = new HashMap();
+        Map<String, String> instructions = new HashMap<>();
         instructions.put( DependencyEmbedder.EMBED_DEPENDENCY, "c;type=jar,c;type=sources" );
         Properties props = new Properties();
+
+        plugin.session = newMavenSession( project );
 
         DependencyNode dependencyGraph = plugin.buildDependencyGraph(project);
         Builder builder = plugin.buildOSGiBundle( project, dependencyGraph, instructions, props, plugin.getClasspath( project, dependencyGraph ) );
@@ -311,21 +335,13 @@ public class BundlePluginTest extends AbstractBundlePluginTest
 
     public void testEmbedDependencyMissingPositiveKey() throws Exception
     {
-        ArtifactStubFactory artifactFactory = new ArtifactStubFactory( plugin.getOutputDirectory(), true );
-
-        Set artifacts = new LinkedHashSet();
-
-        artifacts.addAll( artifactFactory.getClassifiedArtifacts() );
-        artifacts.addAll( artifactFactory.getScopedArtifacts() );
-        artifacts.addAll( artifactFactory.getTypedArtifacts() );
-
         MavenProject project = getMavenProjectStub();
-        project.setDependencyArtifacts( artifacts );
 
-        Map instructions = new HashMap();
+        Map<String, String> instructions = new HashMap<>();
         instructions.put( DependencyEmbedder.EMBED_DEPENDENCY, "artifactId=a|b" );
         Properties props = new Properties();
 
+        plugin.session = newMavenSession( project );
         DependencyNode dependencyGraph = plugin.buildDependencyGraph(project);
         Builder builder = plugin.buildOSGiBundle( project, dependencyGraph, instructions, props, plugin.getClasspath( project, dependencyGraph ) );
         Manifest manifest = builder.getJar().getManifest();
@@ -342,26 +358,18 @@ public class BundlePluginTest extends AbstractBundlePluginTest
 
     public void testEmbedDependencyMissingNegativeKey() throws Exception
     {
-        ArtifactStubFactory artifactFactory = new ArtifactStubFactory( plugin.getOutputDirectory(), true );
-
-        Set artifacts = new LinkedHashSet();
-
-        artifacts.addAll( artifactFactory.getClassifiedArtifacts() );
-        artifacts.addAll( artifactFactory.getScopedArtifacts() );
-        artifacts.addAll(artifactFactory.getTypedArtifacts());
-
         MavenProject project = getMavenProjectStub();
-        project.setDependencyArtifacts(artifacts);
         Properties props = new Properties();
+        plugin.session = newMavenSession( project );
         DependencyNode dependencyGraph = plugin.buildDependencyGraph(project);
         Jar[] classpath = plugin.getClasspath(project, dependencyGraph);
 
-        Map instructions1 = new HashMap();
+        Map<String, String> instructions1 = new HashMap<>();
         instructions1.put( DependencyEmbedder.EMBED_DEPENDENCY, "!scope=compile" );
         Builder builder1 = plugin.buildOSGiBundle( project, dependencyGraph, instructions1, props, classpath );
         Manifest manifest1 = builder1.getJar().getManifest();
 
-        Map instructions2 = new HashMap();
+        Map<String, String> instructions2 = new HashMap<>();
         instructions2.put( DependencyEmbedder.EMBED_DEPENDENCY, "scope=!compile" );
         Builder builder2 = plugin.buildOSGiBundle( project, dependencyGraph, instructions2, props, classpath );
         Manifest manifest2 = builder2.getJar().getManifest();
@@ -396,8 +404,9 @@ public class BundlePluginTest extends AbstractBundlePluginTest
         props.put( "4", new HashMap( 2 ) );
         props.put( "1, two, 3.0", new char[5] );
 
+        plugin.session = newMavenSession( project );
         DependencyNode dependencyGraph = plugin.buildDependencyGraph(project);
-        Builder builder = plugin.getOSGiBuilder( project, new HashMap(), props, plugin.getClasspath( project, dependencyGraph ) );
+        Builder builder = plugin.getOSGiBuilder( project, new HashMap<String, String>(), props, plugin.getClasspath( project, dependencyGraph ) );
 
         File file = new File( getBasedir(), "target" + File.separatorChar + "test.props" );
         builder.getProperties().store( new FileOutputStream( file ), "TEST" );
@@ -420,6 +429,132 @@ public class BundlePluginTest extends AbstractBundlePluginTest
         BundlePlugin.includeJava9Fixups(project, analyzer);
 
         assertEquals("Classes found in the wrong directory;is:=error", analyzer.get("-fixupmessages"));
+    }
+
+    protected MavenProjectStub getMavenProjectStub() {
+        try {
+            MavenProjectStub project = super.getMavenProjectStub();
+            Set<Artifact> artifacts = new LinkedHashSet<>();
+            artifacts.addAll(artifactFactory.getClassifiedArtifacts());
+            artifacts.addAll(artifactFactory.getScopedArtifacts());
+            artifacts.addAll(artifactFactory.getTypedArtifacts());
+            project.setDependencyArtifacts(artifacts);
+            return project;
+        } catch (IOException e) {
+            throw new IOError(e);
+        }
+    }
+
+    static class StubArtifactResolver implements org.eclipse.aether.impl.ArtifactResolver {
+        @Override
+        public ArtifactResult resolveArtifact(RepositorySystemSession session, ArtifactRequest request) throws org.eclipse.aether.resolution.ArtifactResolutionException {
+            ArtifactResult r = new ArtifactResult(request);
+            r.setArtifact(request.getArtifact());
+            return r;
+        }
+
+        @Override
+        public List<ArtifactResult> resolveArtifacts(RepositorySystemSession session, Collection<? extends ArtifactRequest> requests) throws org.eclipse.aether.resolution.ArtifactResolutionException {
+            return null;
+        }
+    }
+
+    static class StubRepositorySystem implements RepositorySystem {
+
+        private final ArtifactStubFactory artifactFactory;
+
+        public StubRepositorySystem(ArtifactStubFactory artifactFactory) {
+            this.artifactFactory = artifactFactory;
+        }
+
+        @Override
+        public VersionRangeResult resolveVersionRange(RepositorySystemSession session, VersionRangeRequest request) throws VersionRangeResolutionException {
+            return null;
+        }
+
+        @Override
+        public VersionResult resolveVersion(RepositorySystemSession session, VersionRequest request) throws VersionResolutionException {
+            return null;
+        }
+
+        @Override
+        public ArtifactDescriptorResult readArtifactDescriptor(RepositorySystemSession session, ArtifactDescriptorRequest request) throws ArtifactDescriptorException {
+            return null;
+        }
+
+        @Override
+        public CollectResult collectDependencies(RepositorySystemSession session, CollectRequest request) throws DependencyCollectionException {
+            try {
+                CollectResult result = new CollectResult(request);
+                DefaultDependencyNode root = new DefaultDependencyNode(request.getRoot());
+                if (artifactFactory != null) {
+                    for (Artifact artifact : artifactFactory.getClassifiedArtifacts()) {
+                        root.getChildren().add(new DefaultDependencyNode(new Dependency(new DefaultArtifact(artifact.getId()), artifact.getScope())));
+                    }
+                    for (Artifact artifact : artifactFactory.getScopedArtifacts()) {
+                        root.getChildren().add(new DefaultDependencyNode(new Dependency(new DefaultArtifact(artifact.getId()), artifact.getScope())));
+                    }
+                    for (Artifact artifact : artifactFactory.getTypedArtifacts()) {
+                        root.getChildren().add(new DefaultDependencyNode(new Dependency(new DefaultArtifact(artifact.getId()), artifact.getScope())));
+                    }
+                }
+                result.setRoot(root);
+                return result;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Override
+        public DependencyResult resolveDependencies(RepositorySystemSession session, DependencyRequest request) throws org.eclipse.aether.resolution.DependencyResolutionException {
+            DependencyResult result = new DependencyResult(request);
+            return result;
+        }
+
+        @Override
+        public ArtifactResult resolveArtifact(RepositorySystemSession session, ArtifactRequest request) throws org.eclipse.aether.resolution.ArtifactResolutionException {
+            return null;
+        }
+
+        @Override
+        public List<ArtifactResult> resolveArtifacts(RepositorySystemSession session, Collection<? extends ArtifactRequest> requests) throws org.eclipse.aether.resolution.ArtifactResolutionException {
+            return null;
+        }
+
+        @Override
+        public List<MetadataResult> resolveMetadata(RepositorySystemSession session, Collection<? extends MetadataRequest> requests) {
+            return null;
+        }
+
+        @Override
+        public InstallResult install(RepositorySystemSession session, InstallRequest request) throws InstallationException {
+            return null;
+        }
+
+        @Override
+        public DeployResult deploy(RepositorySystemSession session, DeployRequest request) throws DeploymentException {
+            return null;
+        }
+
+        @Override
+        public LocalRepositoryManager newLocalRepositoryManager(RepositorySystemSession session, LocalRepository localRepository) {
+            return null;
+        }
+
+        @Override
+        public SyncContext newSyncContext(RepositorySystemSession session, boolean shared) {
+            return null;
+        }
+
+        @Override
+        public List<RemoteRepository> newResolutionRepositories(RepositorySystemSession session, List<RemoteRepository> repositories) {
+            return null;
+        }
+
+        @Override
+        public RemoteRepository newDeploymentRepository(RepositorySystemSession session, RemoteRepository repository) {
+            return null;
+        }
     }
 
 }

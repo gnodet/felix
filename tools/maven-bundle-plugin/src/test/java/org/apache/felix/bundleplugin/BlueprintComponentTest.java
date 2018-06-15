@@ -35,13 +35,21 @@ import org.apache.maven.artifact.DefaultArtifact;
 import org.apache.maven.artifact.handler.ArtifactHandler;
 import org.apache.maven.artifact.handler.DefaultArtifactHandler;
 import org.apache.maven.artifact.versioning.VersionRange;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Resource;
 import org.apache.maven.plugin.testing.AbstractMojoTestCase;
 import org.apache.maven.plugin.testing.stubs.MavenProjectStub;
 import org.apache.maven.project.DefaultProjectBuilderConfiguration;
+import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.ProjectBuilderConfiguration;
 import org.apache.maven.shared.dependency.graph.DependencyGraphBuilder;
 import org.apache.maven.shared.dependency.graph.DependencyNode;
+import org.eclipse.aether.DefaultRepositorySystemSession;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.internal.impl.SimpleLocalRepositoryManagerFactory;
+import org.eclipse.aether.repository.LocalRepository;
+import org.eclipse.aether.repository.LocalRepositoryManager;
+import org.eclipse.aether.repository.NoLocalRepositoryManagerException;
 import org.osgi.framework.Constants;
 
 import aQute.bnd.osgi.Analyzer;
@@ -101,7 +109,7 @@ public class BlueprintComponentTest extends AbstractMojoTestCase
 
         ProjectBuilderConfiguration projectBuilderConfiguration = new DefaultProjectBuilderConfiguration();
         projectBuilderConfiguration.setLocalRepository(null);
-        project.setProjectBuilderConfiguration(projectBuilderConfiguration);
+//        project.setProjectBuilderConfiguration(projectBuilderConfiguration);
 
         Resource r = new Resource();
         r.setDirectory( new File( "src/test/resources" ).getAbsoluteFile().getCanonicalPath() );
@@ -110,6 +118,8 @@ public class BlueprintComponentTest extends AbstractMojoTestCase
         project.addCompileSourceRoot(new File("src/test/resources").getAbsoluteFile().getCanonicalPath());
 
         ManifestPlugin plugin = new ManifestPlugin();
+        plugin.session = newMavenSession(project);
+
         plugin.setBuildDirectory( "target/tmp/basedir/target" );
         plugin.setOutputDirectory(new File("target/tmp/basedir/target/classes"));
         setVariableValueToObject(plugin, "m_dependencyGraphBuilder", lookup(DependencyGraphBuilder.class.getName(), "default"));
@@ -170,6 +180,22 @@ public class BlueprintComponentTest extends AbstractMojoTestCase
 
         try (Verifier verifier = new Verifier(analyzer)) {
             verifier.verify();
+        }
+    }
+
+    @Override
+    protected MavenSession newMavenSession(MavenProject project) {
+        try {
+            File base = new File(System.getProperty("user.home"), ".m2/repository");
+            MavenSession session = super.newMavenSession(project);
+            LocalRepository localRepository = new LocalRepository(base);
+            RepositorySystemSession repoSession = session.getRepositorySession();
+            SimpleLocalRepositoryManagerFactory factory = new SimpleLocalRepositoryManagerFactory();
+            LocalRepositoryManager localRepositoryManager = factory.newInstance(repoSession, localRepository);
+            ((DefaultRepositorySystemSession) repoSession).setLocalRepositoryManager(localRepositoryManager);
+            return session;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 

@@ -39,9 +39,9 @@ class ArtifactStubFactory extends org.apache.maven.plugin.testing.ArtifactStubFa
     }
 
     @Override
-    public Set getClassifiedArtifacts() throws IOException
+    public Set<Artifact> getClassifiedArtifacts() throws IOException
     {
-        Set set = new LinkedHashSet();
+        Set<Artifact> set = new LinkedHashSet<Artifact>();
         set.add( createArtifact( "g", "a", "1.0", Artifact.SCOPE_COMPILE, "jar", "one" ) );
         set.add( createArtifact( "g", "b", "1.0", Artifact.SCOPE_COMPILE, "jar", "two" ) );
         set.add( createArtifact( "g", "c", "1.0", Artifact.SCOPE_COMPILE, "jar", "three" ) );
@@ -50,9 +50,9 @@ class ArtifactStubFactory extends org.apache.maven.plugin.testing.ArtifactStubFa
     }
 
     @Override
-    public Set getScopedArtifacts() throws IOException
+    public Set<Artifact> getScopedArtifacts() throws IOException
     {
-        Set set = new LinkedHashSet();
+        Set<Artifact> set = new LinkedHashSet<Artifact>();
         set.add( createArtifact( "g", "compile", "1.0", Artifact.SCOPE_COMPILE ) );
         set.add( createArtifact( "g", "provided", "1.0", Artifact.SCOPE_PROVIDED ) );
         set.add( createArtifact( "g", "test", "1.0", Artifact.SCOPE_TEST ) );
@@ -62,9 +62,9 @@ class ArtifactStubFactory extends org.apache.maven.plugin.testing.ArtifactStubFa
     }
 
     @Override
-    public Set getTypedArtifacts() throws IOException
+    public Set<Artifact> getTypedArtifacts() throws IOException
     {
-        Set set = new LinkedHashSet();
+        Set<Artifact> set = new LinkedHashSet<Artifact>();
         set.add( createArtifact( "g", "a", "1.0", Artifact.SCOPE_COMPILE, "war", null ) );
         set.add( createArtifact( "g", "b", "1.0", Artifact.SCOPE_COMPILE, "jar", null ) );
         set.add( createArtifact( "g", "c", "1.0", Artifact.SCOPE_COMPILE, "sources", null ) );

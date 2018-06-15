@@ -21,8 +21,10 @@ package org.apache.felix.bundleplugin;
 
 import java.io.File;
 import java.io.FilenameFilter;
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -38,7 +40,6 @@ import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.metadata.ArtifactMetadataSource;
 import org.apache.maven.artifact.repository.ArtifactRepository;
-import org.apache.maven.artifact.resolver.ArtifactCollector;
 import org.apache.maven.artifact.resolver.ArtifactNotFoundException;
 import org.apache.maven.artifact.resolver.ArtifactResolutionException;
 import org.apache.maven.artifact.resolver.ArtifactResolver;
@@ -49,13 +50,14 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
+import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.MavenProjectBuilder;
 import org.apache.maven.project.ProjectBuildingException;
+import org.apache.maven.project.ProjectBuildingRequest;
 import org.apache.maven.project.artifact.InvalidDependencyVersionException;
-import org.apache.maven.shared.dependency.tree.DependencyNode;
-import org.apache.maven.shared.dependency.tree.DependencyTreeBuilder;
-import org.apache.maven.shared.dependency.tree.DependencyTreeBuilderException;
+import org.apache.maven.shared.dependency.graph.DependencyGraphBuilderException;
+import org.apache.maven.shared.dependency.graph.DependencyNode;
 import org.codehaus.plexus.util.FileUtils;
 
 import aQute.bnd.osgi.Analyzer;
@@ -92,15 +94,11 @@ public class BundleAllPlugin extends ManifestPlugin
      */
     @Parameter( property = "wrapImportPackage", defaultValue = "*" )
     private String wrapImportPackage;
-
     @Component
     private ArtifactFactory m_factory;
 
     @Component
     private ArtifactMetadataSource m_artifactMetadataSource;
-
-    @Component
-    private ArtifactCollector m_collector;
 
     /**
      * Artifact resolver, needed to download jars.
@@ -108,8 +106,6 @@ public class BundleAllPlugin extends ManifestPlugin
     @Component
     private ArtifactResolver m_artifactResolver;
 
-    @Component
-    private DependencyTreeBuilder m_dependencyTreeBuilder;
 
     @Component
     private MavenProjectBuilder m_mavenProjectBuilder;
@@ -180,17 +176,19 @@ public class BundleAllPlugin extends ManifestPlugin
 
         try
         {
-            dependencyTree = m_dependencyTreeBuilder.buildDependencyTree( project, localRepository, m_factory,
-                m_artifactMetadataSource, null, m_collector );
+            ProjectBuildingRequest request = new DefaultProjectBuildingRequest();
+            request.setProject(getProject());
+            request.setRepositorySession(session.getRepositorySession());
+            dependencyTree = m_dependencyGraphBuilder.buildDependencyGraph(request, null);
         }
-        catch ( DependencyTreeBuilderException e )
+        catch ( DependencyGraphBuilderException e )
         {
             throw new MojoExecutionException( "Unable to build dependency tree", e );
         }
 
         BundleInfo bundleInfo = new BundleInfo();
 
-        if ( !dependencyTree.hasChildren() )
+        if ( dependencyTree.getChildren().isEmpty())
         {
             /* no need to traverse the tree */
             return bundleRoot( project, bundleInfo );
@@ -198,19 +196,26 @@ public class BundleAllPlugin extends ManifestPlugin
 
         getLog().debug( "Will bundle the following dependency tree" + LS + dependencyTree );
 
-        for ( Iterator it = dependencyTree.inverseIterator(); it.hasNext(); )
+        Deque<DependencyNode> stack = new ArrayDeque<DependencyNode>();
+        stack.push(dependencyTree);
+        Set<DependencyNode> visited = new HashSet<DependencyNode>();
+        while (!stack.isEmpty())
         {
-            DependencyNode node = ( DependencyNode ) it.next();
-            if ( !it.hasNext() )
-            {
-                /* this is the root, current project */
-                break;
-            }
-
-            if ( node.getState() != DependencyNode.INCLUDED )
+            DependencyNode node = stack.pop();
+            if (visited.contains(node))
             {
                 continue;
             }
+            visited.add(node);
+            if (node.getChildren() != null)
+            {
+                stack.addAll(node.getChildren());
+            }
+
+            //if ( node.getState() != DependencyNode.INCLUDED )
+            //{
+            //    continue;
+            //}
 
             if ( Artifact.SCOPE_SYSTEM.equals( node.getArtifact().getScope() ) )
             {
@@ -235,12 +240,11 @@ public class BundleAllPlugin extends ManifestPlugin
 
             node.getArtifact().setFile( artifact.getFile() );
 
-            int nodeDepth = node.getDepth();
-            if ( nodeDepth > maxDepth )
+            if ( stack.size() > maxDepth )
             {
                 /* node is deeper than we want */
                 getLog().debug(
-                    "Ignoring " + node.getArtifact() + ", depth is " + nodeDepth + ", bigger than " + maxDepth );
+                    "Ignoring " + node.getArtifact() + ", depth is " + stack.size() + ", bigger than " + maxDepth );
                 continue;
             }
 

@@ -106,6 +106,7 @@ public class BundleAllPluginTest extends AbstractBundlePluginTest
         File bundleFile = getTestFile( "src/test/resources/org.apache.maven.maven-model_2.1.0.SNAPSHOT.jar" );
         artifact.setFile( bundleFile );
 
+        plugin.session = newMavenSession( project );
         BundleInfo bundleInfo = plugin.bundle( project );
 
         Map exports = bundleInfo.getExportedPackages();

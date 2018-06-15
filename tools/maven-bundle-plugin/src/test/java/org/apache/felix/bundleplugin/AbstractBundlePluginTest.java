@@ -29,13 +29,21 @@ import org.apache.maven.artifact.handler.DefaultArtifactHandler;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.DefaultArtifactRepository;
 import org.apache.maven.artifact.repository.layout.ArtifactRepositoryLayout;
-import org.apache.maven.artifact.repository.layout.LegacyRepositoryLayout;
+import org.apache.maven.artifact.repository.layout.DefaultRepositoryLayout;
 import org.apache.maven.artifact.versioning.VersionRange;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.testing.AbstractMojoTestCase;
 import org.apache.maven.plugin.testing.stubs.ArtifactStub;
 import org.apache.maven.plugin.testing.stubs.MavenProjectStub;
 import org.apache.maven.project.DefaultProjectBuilderConfiguration;
+import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.ProjectBuilderConfiguration;
+import org.eclipse.aether.DefaultRepositorySystemSession;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.internal.impl.SimpleLocalRepositoryManagerFactory;
+import org.eclipse.aether.repository.LocalRepository;
+import org.eclipse.aether.repository.LocalRepositoryManager;
+import org.eclipse.aether.repository.NoLocalRepositoryManagerException;
 
 
 /**
@@ -62,10 +70,10 @@ public abstract class AbstractBundlePluginTest extends AbstractMojoTestCase
         artifact.setResolved( true );
         project.setArtifact( artifact );
         ProjectBuilderConfiguration projectBuilderConfiguration = new DefaultProjectBuilderConfiguration();
-        ArtifactRepositoryLayout layout = new LegacyRepositoryLayout();
+        ArtifactRepositoryLayout layout = new DefaultRepositoryLayout();
         ArtifactRepository artifactRepository = new DefaultArtifactRepository( "scratch", new File( getBasedir(), "target" + File.separatorChar + "scratch" ).toURI().toString(), layout );
         projectBuilderConfiguration.setLocalRepository( artifactRepository );
-        project.setProjectBuilderConfiguration( projectBuilderConfiguration );
+//        project.setProjectBuilderConfiguration( projectBuilderConfiguration );
         return project;
     }
 
@@ -84,6 +92,22 @@ public abstract class AbstractBundlePluginTest extends AbstractMojoTestCase
     {
         String osgiBundleFileName = "org.apache.maven.maven-model_2.1.0.SNAPSHOT.jar";
         return getTestFile( getBasedir(), "src/test/resources/" + osgiBundleFileName );
+    }
+
+    @Override
+    protected MavenSession newMavenSession(MavenProject project) {
+        try {
+            File base = new File(System.getProperty("user.home"), ".m2/repository");
+            MavenSession session = super.newMavenSession(project);
+            LocalRepository localRepository = new LocalRepository(base);
+            RepositorySystemSession repoSession = session.getRepositorySession();
+            SimpleLocalRepositoryManagerFactory factory = new SimpleLocalRepositoryManagerFactory();
+            LocalRepositoryManager localRepositoryManager = factory.newInstance(repoSession, localRepository);
+            ((DefaultRepositorySystemSession) repoSession).setLocalRepositoryManager(localRepositoryManager);
+            return session;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }

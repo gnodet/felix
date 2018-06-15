@@ -46,7 +46,6 @@ import java.util.TreeMap;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
-import org.apache.felix.bundleplugin.pom.PomWriter;
 import org.apache.maven.archiver.ManifestSection;
 import org.apache.maven.archiver.MavenArchiveConfiguration;
 import org.apache.maven.archiver.MavenArchiver;
@@ -63,6 +62,7 @@ import org.apache.maven.model.Exclusion;
 import org.apache.maven.model.License;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Resource;
+import org.apache.maven.model.io.xpp3.MavenXpp3Writer;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -72,15 +72,15 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
+import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.MavenProjectBuilder;
 import org.apache.maven.project.MavenProjectHelper;
 import org.apache.maven.project.ProjectBuildingException;
+import org.apache.maven.project.ProjectBuildingRequest;
 import org.apache.maven.shared.dependency.graph.DependencyGraphBuilder;
 import org.apache.maven.shared.dependency.graph.DependencyGraphBuilderException;
 import org.apache.maven.shared.dependency.graph.DependencyNode;
-import org.apache.maven.shared.dependency.tree.DependencyTreeBuilder;
-import org.apache.maven.shared.dependency.tree.DependencyTreeBuilderException;
 import org.apache.maven.shared.osgi.DefaultMaven2OsgiConverter;
 import org.apache.maven.shared.osgi.Maven2OsgiConverter;
 import org.codehaus.plexus.archiver.UnArchiver;
@@ -225,9 +225,6 @@ public class BundlePlugin extends AbstractMojo
     @Component
     protected MavenProjectBuilder mavenProjectBuilder;
 
-    @Component
-    private DependencyTreeBuilder dependencyTreeBuilder;
-
     /**
      * The dependency graph builder to use.
      */
@@ -347,7 +344,10 @@ public class BundlePlugin extends AbstractMojo
         DependencyNode dependencyGraph;
         try
         {
-            dependencyGraph = m_dependencyGraphBuilder.buildDependencyGraph( mavenProject, null );
+            ProjectBuildingRequest request = new DefaultProjectBuildingRequest();
+            request.setProject(mavenProject);
+            request.setRepositorySession(session.getRepositorySession());
+            dependencyGraph = m_dependencyGraphBuilder.buildDependencyGraph( request, null );
         }
         catch ( DependencyGraphBuilderException e )
         {
@@ -758,7 +758,7 @@ public class BundlePlugin extends AbstractMojo
     // We need to find the direct dependencies that have been included in the uber JAR so that we can modify the
     // POM accordingly.
     private void createDependencyReducedPom( Set<String> artifactsToRemove )
-            throws IOException, DependencyTreeBuilderException, ProjectBuildingException
+            throws IOException, DependencyGraphBuilderException, ProjectBuildingException
     {
         Model model = project.getOriginalModel();
         List<Dependency> dependencies = new ArrayList<Dependency>();
@@ -864,7 +864,7 @@ public class BundlePlugin extends AbstractMojo
 
                 try
                 {
-                    PomWriter.write( w, model, true );
+                    new MavenXpp3Writer().write( w, model );
                 }
                 finally
                 {
@@ -901,24 +901,26 @@ public class BundlePlugin extends AbstractMojo
     }
 
     public boolean updateExcludesInDeps( MavenProject project, List<Dependency> dependencies, List<Dependency> transitiveDeps )
-            throws DependencyTreeBuilderException
+    throws DependencyGraphBuilderException
     {
-        org.apache.maven.shared.dependency.tree.DependencyNode node = dependencyTreeBuilder.buildDependencyTree(project, localRepository, artifactFactory,
-                artifactMetadataSource, null,
-                artifactCollector);
+        ProjectBuildingRequest request = new DefaultProjectBuildingRequest();
+        request.setProject(project);
+        request.setRepositorySession(session.getRepositorySession());
+        DependencyNode node = dependencyGraphBuilder.buildDependencyGraph(request, null);
         boolean modified = false;
         Iterator it = node.getChildren().listIterator();
         while ( it.hasNext() )
         {
-            org.apache.maven.shared.dependency.tree.DependencyNode n2 = (org.apache.maven.shared.dependency.tree.DependencyNode) it.next();
+            DependencyNode n2 = (DependencyNode) it.next();
             Iterator it2 = n2.getChildren().listIterator();
             while ( it2.hasNext() )
             {
-                org.apache.maven.shared.dependency.tree.DependencyNode n3 = (org.apache.maven.shared.dependency.tree.DependencyNode) it2.next();
+                DependencyNode n3 = (DependencyNode) it2.next();
                 //anything two levels deep that is marked "included"
                 //is stuff that was excluded by the original poms, make sure it
                 //remains excluded IF promoting transitives.
-                if ( n3.getState() == org.apache.maven.shared.dependency.tree.DependencyNode.INCLUDED )
+                //if ( n3.getState() == org.apache.maven.shared.dependency.tree.DependencyNode.INCLUDED )
+                if (true)
                 {
                     //check if it really isn't in the list of original dependencies.  Maven
                     //prior to 2.0.8 may grab versions from transients instead of
@@ -1099,7 +1101,7 @@ public class BundlePlugin extends AbstractMojo
              * Grab customized manifest entries from the maven-jar-plugin configuration
              */
             MavenArchiveConfiguration archiveConfig = JarPluginConfiguration.getArchiveConfiguration( currentProject );
-            String mavenManifestText = new MavenArchiver().getManifest( currentProject, archiveConfig ).toString();
+            String mavenManifestText = new MavenArchiver().getManifest( m_mavenSession, currentProject, archiveConfig ).toString();
             addMavenDescriptor = addMavenDescriptor && archiveConfig.isAddMavenDescriptor();
 
             Manifest mavenManifest = new Manifest();
@@ -1804,7 +1806,14 @@ public class BundlePlugin extends AbstractMojo
             File filterFile = new File( i.next() );
             if ( filterFile.isFile() )
             {
-                properties.putAll( PropertyUtils.loadProperties( filterFile ) );
+                try
+                {
+                    properties.putAll( PropertyUtils.loadProperties( filterFile ) );
+                }
+                catch ( IOException exc )
+                {
+                    // Ignore
+                }
             }
         }
 
